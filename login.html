@@ -5,26 +5,49 @@
     <title>Đăng nhập - HungAuth</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { proton: '#6D4AFF', bg: '#F5F5F7', darkbg: '#121212', darkcard: '#1E1E1E' } } } }</script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Hind', 'sans-serif'] }, 
+                    colors: { roblox: '#00A2FF', bg: '#F2F4F5', darkbg: '#232527', darkcard: '#393B3D' } 
+                } 
+            } 
+        }
+    </script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Hiệu ứng xoay tròn cho icon */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+    </style>
 </head>
-<body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex items-center justify-center">
-    <div class="bg-white dark:bg-darkcard p-8 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-800">
+<body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex items-center justify-center transition-colors duration-300">
+    <div class="bg-white dark:bg-darkcard p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-800">
         <div class="text-center mb-8">
-            <div class="w-16 h-16 bg-proton text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-proton/30"><i class="fas fa-user-lock"></i></div>
+            <div class="w-16 h-16 bg-roblox text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-roblox/30">
+                <i class="fas fa-user-lock"></i>
+            </div>
             <h1 class="text-2xl font-bold">Đăng nhập</h1>
             <p class="text-gray-500 text-sm mt-1">Đồng bộ mã 2FA của bạn</p>
         </div>
         
-        <input type="text" id="username" placeholder="Nhập tên của bạn..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
-        <input type="password" id="password" placeholder="Nhập mật khẩu..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+        <input type="text" id="username" placeholder="Nhập tên của bạn..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
+        <input type="password" id="password" placeholder="Nhập mật khẩu..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
         
-        <button id="btnLogin" type="button" class="w-full py-3 rounded-xl bg-proton text-white font-semibold hover:bg-[#5B3DD6] shadow-lg shadow-proton/30 btn-anim mb-4">Đăng nhập</button>
+        <!-- Nút Đăng nhập với hiệu ứng xoay -->
+        <button id="btnLogin" type="button" class="w-full py-3 rounded-xl bg-roblox text-white font-semibold hover:bg-robloxDark shadow-lg shadow-roblox/30 transition-all duration-200 mb-4 flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+            <span id="btnText">Đăng nhập</span>
+            <i id="btnSpinner" class="fas fa-spinner loading-spinner hidden"></i>
+        </button>
         
         <div class="text-center text-sm text-gray-500">
-            Chưa có tài khoản? <a href="/register" class="text-proton font-semibold hover:underline">Đăng ký ngay</a>
+            Chưa có tài khoản? <a href="/register" class="text-roblox font-semibold hover:underline">Đăng ký ngay</a>
         </div>
         <div class="text-center mt-4">
             <a href="/" class="text-gray-400 hover:text-gray-600 text-sm"><i class="fas fa-arrow-left mr-1"></i> Về trang chủ</a>
@@ -34,26 +57,43 @@
     <script>
         const db = window.supabase.createClient('https://skwsuorigvxwwugpldvn.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3N1b3JpZ3Z4d3d1Z3BsZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDY1NzAsImV4cCI6MjEwODM4MjU3MH0.-5MxD9VIFjANch9J0NMTFT-z-tM7eDDxdA1e4p8NFHc');
         
-        document.getElementById('btnLogin').addEventListener('click', async (e) => {
+        const btnLogin = document.getElementById('btnLogin');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+
+        btnLogin.addEventListener('click', async (e) => {
             e.preventDefault();
             let username = document.getElementById('username').value.trim().toLowerCase();
             let password = document.getElementById('password').value.trim();
             
             if (!username || !password) return alert("Vui lòng nhập đủ Tên và Mật khẩu!");
             
-            // Tự động ghép tên thành email
+            // Bắt đầu trạng thái Loading
+            btnLogin.disabled = true;
+            btnText.textContent = "Đang đăng nhập...";
+            btnSpinner.classList.remove('hidden');
+
             const email = `${username}@myauth.local`;
             
             try {
                 const { data, error } = await db.auth.signInWithPassword({ email, password });
+                
                 if (error) {
+                    // Nếu lỗi, trả lại trạng thái bình thường và báo lỗi
                     alert("Sai tên hoặc mật khẩu!");
+                    btnLogin.disabled = false;
+                    btnText.textContent = "Đăng nhập";
+                    btnSpinner.classList.add('hidden');
                 } else {
-                    alert("Đăng nhập thành công!");
+                    // Thành công thì chuyển trang
+                    btnText.textContent = "Thành công!";
                     window.location.href = "/";
                 }
             } catch (err) {
                 alert("Lỗi kết nối: " + err.message);
+                btnLogin.disabled = false;
+                btnText.textContent = "Đăng nhập";
+                btnSpinner.classList.add('hidden');
             }
         });
     </script>
