@@ -1,16 +1,17 @@
-// ==========================================
-// 0. CẤU HÌNH SUPABASE (BẠN CẦN THAY ĐỔI Ở ĐÂY)
-// ==========================================
+// Cấu hình Supabase
 const SUPABASE_URL = 'https://skswuorigvxwwugpldvn.supabase.co';
-const SUPABASE_KEY = 'DÁN_ANON_KEY_CỦA_BẠN_VÀO_ĐÂY';
+const SUPABASE_KEY = 'postgresql://postgres.skwsuorigvxwwugpldvn:[LuongHung0707@123]@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let accounts = [];
 let settings = { theme: 'light', password: '', biometricId: null };
 let currentUser = null;
 
-// Thuật toán OTP
+// ==========================================
+// THUẬT TOÁN OTP
+// ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
     const output = new Uint8Array(Math.floor(base32.length * 5 / 8));
@@ -19,16 +20,19 @@ function base32Decode(base32) {
         if (char === '=') break;
         const val = OTP_ALPHABET.indexOf(char);
         if (val === -1) continue;
-        value = (value << 5) | val; bits += 5;
+        value = (value << 5) | val;
+        bits += 5;
         if (bits >= 8) { output[index++] = (value >>> (bits - 8)) & 0xFF; bits -= 8; }
     }
     return output.subarray(0, index);
 }
+
 async function hmacSha1(key, message) {
     const cryptoKey = await window.crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
     const signature = await window.crypto.subtle.sign('HMAC', cryptoKey, message);
     return new Uint8Array(signature);
 }
+
 async function generateOTP(secret) {
     try {
         let cleanSecret = secret.toUpperCase().replace(/[^A-Z2-7]/g, '');
@@ -46,7 +50,7 @@ async function generateOTP(secret) {
 }
 
 // ==========================================
-// 1. KHỞI TẠO & TẢI DỮ LIỆU
+// KHỞI TẠO & TẢI DỮ LIỆU
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
@@ -103,7 +107,7 @@ function saveData() {
 }
 
 // ==========================================
-// 2. XỬ LÝ SUPABASE (ĐĂNG NHẬP / ĐỒNG BỘ)
+// SUPABASE AUTH & SYNC
 // ==========================================
 async function checkUserSession() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -124,12 +128,10 @@ function updateAccountUI() {
     }
 }
 
-// Đăng nhập
 document.getElementById('btnLogin').addEventListener('click', async () => {
     const email = document.getElementById('inputEmail').value;
     const password = document.getElementById('inputPassAuth').value;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    
     if (error) alert("Lỗi đăng nhập: " + error.message);
     else {
         currentUser = data.user;
@@ -138,24 +140,20 @@ document.getElementById('btnLogin').addEventListener('click', async () => {
     }
 });
 
-// Đăng ký
 document.getElementById('btnRegister').addEventListener('click', async () => {
     const email = document.getElementById('inputEmail').value;
     const password = document.getElementById('inputPassAuth').value;
     const { data, error } = await supabase.auth.signUp({ email, password });
-    
     if (error) alert("Lỗi đăng ký: " + error.message);
-    else alert("Đăng ký thành công! Hãy kiểm tra email (nếu có bật xác nhận) hoặc đăng nhập luôn.");
+    else alert("Đăng ký thành công! Hãy đăng nhập.");
 });
 
-// Đăng xuất
 document.getElementById('btnLogout').addEventListener('click', async () => {
     await supabase.auth.signOut();
     currentUser = null;
     updateAccountUI();
 });
 
-// Đẩy dữ liệu lên Mây
 document.getElementById('btnSyncUpload').addEventListener('click', async () => {
     if (!currentUser) return;
     try {
@@ -169,24 +167,15 @@ document.getElementById('btnSyncUpload').addEventListener('click', async () => {
     } catch (err) { alert("Lỗi đồng bộ: " + err.message); }
 });
 
-// Tải dữ liệu từ Mây
 document.getElementById('btnSyncDownload').addEventListener('click', async () => {
     if (!currentUser) return;
     try {
         const { data, error } = await supabase.from('user_data').select('*').eq('user_id', currentUser.id).single();
-        if (error && error.code !== 'PGRST116') throw error; // Bỏ qua lỗi không tìm thấy data
+        if (error && error.code !== 'PGRST116') throw error;
         
         if (data) {
-            if (data.accounts) {
-                accounts = data.accounts;
-                saveData();
-                renderAccounts();
-            }
-            if (data.settings) {
-                settings = data.settings;
-                saveSettings();
-                applyTheme(settings.theme);
-            }
+            if (data.accounts) { accounts = data.accounts; saveData(); renderAccounts(); }
+            if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
             alert("Đã tải dữ liệu từ Mây thành công!");
             document.getElementById('modalAccount').classList.add('hidden');
             document.getElementById('modalAccount').classList.remove('flex');
@@ -196,7 +185,6 @@ document.getElementById('btnSyncDownload').addEventListener('click', async () =>
     } catch (err) { alert("Lỗi tải dữ liệu: " + err.message); }
 });
 
-// Mở modal Account
 document.getElementById('btnAccount').addEventListener('click', () => {
     updateAccountUI();
     document.getElementById('modalAccount').classList.remove('hidden');
@@ -212,11 +200,8 @@ document.getElementById('btnCloseAccount').addEventListener('click', () => {
 });
 
 // ==========================================
-// 3. CÁC HÀM GIAO DIỆN KHÁC (GIỮ NGUYÊN)
+// CÁC HÀM GIAO DIỆN
 // ==========================================
-// (Copy lại toàn bộ phần renderAccounts, updateCodes, modal settings, 
-// WebAuthn, Import, Thêm tài khoản... từ câu trả lời trước vào đây)
-
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -285,14 +270,27 @@ async function updateCodes() {
     document.querySelectorAll('.sec-label').forEach(el => { el.textContent = `${remaining}s`; });
 }
 
+// SỬA LỖI NÚT COPY TRÊN HTTPS/RENDER
 async function copyCode(secret) {
     try {
         const code = await generateOTP(secret);
         if (code !== "Error") {
-            await navigator.clipboard.writeText(code);
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(code);
+            } else {
+                // Cơ chế dự phòng cho trình duyệt chặn Clipboard
+                const textArea = document.createElement("textarea");
+                textArea.value = code;
+                textArea.style.position = "absolute";
+                textArea.style.left = "-999999px";
+                document.body.prepend(textArea);
+                textArea.select();
+                try { document.execCommand('copy'); } catch (error) { console.error(error); }
+                textArea.remove();
+            }
             showToast();
         }
-    } catch (e) { console.error("Lỗi copy", e); }
+    } catch (e) { console.error("Lỗi copy: ", e); }
 }
 
 function showToast() {
@@ -320,7 +318,7 @@ function toggleEmptyState() {
     }
 }
 
-// Add
+// Modal Add
 function openModal() {
     document.getElementById('modalAdd').classList.remove('hidden');
     document.getElementById('modalAdd').classList.add('flex');
@@ -353,7 +351,7 @@ document.getElementById('btnSaveAdd').addEventListener('click', async () => {
     closeModal();
 });
 
-// Import
+// Import JSON
 document.getElementById('btnImport').addEventListener('click', () => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = '.json';
@@ -401,7 +399,7 @@ document.getElementById('btnImport').addEventListener('click', () => {
     input.click();
 });
 
-// Settings Modal
+// Settings
 document.getElementById('btnSettings').addEventListener('click', () => {
     document.getElementById('inputPassword').value = settings.password || '';
     document.getElementById('modalSettings').classList.remove('hidden');
@@ -427,16 +425,14 @@ document.getElementById('btnSaveSettings').addEventListener('click', () => {
     alert("Đã lưu cài đặt!");
 });
 
-// ==========================================
-// 4. WEBAUTHN (WINDOWS HELLO) & KHÓA MÀN HÌNH
-// ==========================================
+// WebAuthn
 async function registerBiometric() {
     if (!window.PublicKeyCredential) { alert("Trình duyệt không hỗ trợ Windows Hello."); return; }
     try {
         const challenge = new Uint8Array(32); window.crypto.getRandomValues(challenge);
         const credential = await navigator.credentials.create({
             publicKey: {
-                challenge: challenge, rp: { name: "Proton Auth", id: window.location.hostname || "localhost" },
+                challenge: challenge, rp: { name: "HungAuth", id: window.location.hostname || "localhost" },
                 user: { id: Uint8Array.from("user-id-123", c => c.charCodeAt(0)), name: "user@example.com", displayName: "User" },
                 pubKeyCredParams: [{ alg: -7, type: "public-key" }],
                 authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" }
