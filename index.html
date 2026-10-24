@@ -5,32 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HungAuth - Bảo mật 2FA</title>
     
+    <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { proton: '#6D4AFF', bg: '#F5F5F7', darkbg: '#121212', darkcard: '#1E1E1E' }, boxShadow: { 'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)' } } }
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }, 
+                    colors: { proton: '#6D4AFF', bg: '#F5F5F7', darkbg: '#121212', darkcard: '#1E1E1E' }, 
+                    boxShadow: { 'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)' } 
+                } 
+            }
         }
     </script>
     <link rel="stylesheet" href="style.css">
+    
+    <style>
+        /* CSS cho màn hình khóa (Đã sửa lỗi vỡ layout) */
+        #lockScreen {
+            position: fixed;
+            inset: 0;
+            background: #F5F5F7;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease;
+        }
+        .dark #lockScreen {
+            background: #121212;
+        }
+        #lockScreen.hidden-lock {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
 
-    <!-- MÀN HÌNH KHÓA -->
+    <!-- MÀN HÌNH KHÓA (Sẽ tự ẩn nếu không cài pass) -->
     <div id="lockScreen" class="hidden-lock">
-        <div class="w-20 h-20 bg-proton rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-proton/30"><i class="fas fa-lock text-4xl text-white"></i></div>
+        <div class="w-20 h-20 bg-proton rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-proton/30">
+            <i class="fas fa-lock text-4xl text-white"></i>
+        </div>
         <h2 class="text-2xl font-bold mb-2">Ứng dụng đã khóa</h2>
         <div class="relative w-72 mt-6">
             <input type="password" id="unlockPass" placeholder="Mật khẩu..." class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
-            <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 bg-proton text-white rounded-xl hover:bg-[#5B3DD6] btn-anim"><i class="fas fa-arrow-right"></i></button>
+            <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 bg-proton text-white rounded-xl hover:bg-[#5B3DD6] btn-anim">
+                <i class="fas fa-arrow-right"></i>
+            </button>
         </div>
     </div>
 
-    <!-- THANH CÔNG CỤ -->
+    <!-- THANH CÔNG CỤ TRÊN CÙNG -->
     <div class="flex items-center justify-between px-8 py-6 max-w-5xl w-full mx-auto">
         <div class="flex items-center gap-4 w-full">
             <button id="btnAdd" class="btn-anim flex items-center gap-2 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 px-5 py-2.5 rounded-2xl font-semibold shadow-soft border border-gray-200 dark:border-gray-700">
@@ -43,7 +78,7 @@
         </div>
         
         <div class="flex gap-3 ml-4">
-            <!-- Nút User: Sẽ được điều hướng bằng JS -->
+            <!-- Nút User -->
             <button id="btnUser" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton" title="Tài khoản">
                 <i class="fas fa-user text-lg" id="iconUser"></i>
             </button>
@@ -54,16 +89,21 @@
 
     <!-- DANH SÁCH TÀI KHOẢN -->
     <div id="accountList" class="flex-1 overflow-y-auto px-8 pb-10">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-5xl mx-auto auto-rows-max"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-5xl mx-auto auto-rows-max">
+            <!-- Các thẻ sẽ được chèn vào đây bằng JS -->
+        </div>
         <div id="emptyState" class="flex flex-col items-center justify-center h-full mt-10 hidden opacity-0 transition-opacity duration-500">
-            <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><i class="fas fa-shield-alt text-4xl text-gray-400"></i></div>
+            <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <i class="fas fa-shield-alt text-4xl text-gray-400"></i>
+            </div>
             <h2 class="text-2xl font-bold text-gray-700 dark:text-gray-300">Chưa có tài khoản nào</h2>
         </div>
     </div>
 
-    <!-- TOAST -->
+    <!-- TOAST THÔNG BÁO -->
     <div id="toast" class="fixed bottom-10 left-1/2 bg-gray-900 dark:bg-white dark:text-gray-900 text-white px-6 py-3.5 rounded-2xl font-semibold shadow-2xl z-50 flex items-center gap-3">
-        <i class="fas fa-check-circle text-green-400 dark:text-green-600 text-lg"></i><span>One-time-code Copied!</span>
+        <i class="fas fa-check-circle text-green-400 dark:text-green-600 text-lg"></i>
+        <span>One-time-code Copied!</span>
     </div>
 
     <!-- MODAL THÊM TÀI KHOẢN -->
@@ -125,7 +165,7 @@
         </div>
     </div>
 
-    <!-- MODAL PROFILE (MỚI) -->
+    <!-- MODAL PROFILE (Đã thêm) -->
     <div id="modalProfile" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-3xl p-8 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalProfileContent">
             <div class="flex justify-between items-center mb-6">
@@ -157,6 +197,7 @@
         </div>
     </div>
 
+    <!-- Nhúng file Javascript xử lý logic -->
     <script src="app.js"></script>
 </body>
 </html>
