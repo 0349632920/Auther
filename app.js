@@ -82,13 +82,16 @@ function loadData() {
 
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
-// Đồng bộ ngầm
+// Đồng bộ ngầm & Trạng thái người dùng
 async function checkUserSession() {
     try {
         const { data: { session }, error: sessionError } = await db.auth.getSession();
         if (sessionError) throw sessionError;
+        
         if (session) {
             currentUser = session.user;
+            document.getElementById('iconUser').className = "fas fa-user-circle text-proton text-xl"; // Đổi icon khi đã đăng nhập
+            
             const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
             if (!error && data && data.accounts) {
                 accounts = data.accounts;
@@ -195,7 +198,55 @@ function toggleEmptyState() {
     else emptyState.classList.add('hidden');
 }
 
-// Xử lý Xóa
+// ==========================================
+// XỬ LÝ USER (PROFILE)
+// ==========================================
+document.getElementById('btnUser').addEventListener('click', () => {
+    if (currentUser) {
+        // Đã đăng nhập -> Hiện Profile
+        document.getElementById('profileEmail').textContent = currentUser.email;
+        document.getElementById('modalProfile').classList.remove('hidden');
+        document.getElementById('modalProfile').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalProfileContent').style.transform = 'scale(1)'; }, 50);
+    } else {
+        // Chưa đăng nhập -> Chuyển sang trang Login
+        window.location.href = "/login";
+    }
+});
+
+document.getElementById('btnCloseProfile').addEventListener('click', () => {
+    document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalProfile').classList.add('hidden');
+        document.getElementById('modalProfile').classList.remove('flex');
+    }, 200);
+});
+
+// Đổi mật khẩu
+document.getElementById('btnChangePassword').addEventListener('click', async () => {
+    const newPass = document.getElementById('newPassword').value.trim();
+    if (!newPass || newPass.length < 6) return alert("Mật khẩu phải từ 6 ký tự!");
+    
+    try {
+        const { error } = await db.auth.updateUser({ password: newPass });
+        if (error) throw error;
+        alert("Đổi mật khẩu thành công!");
+        document.getElementById('newPassword').value = '';
+    } catch (err) {
+        alert("Lỗi đổi mật khẩu: " + err.message);
+    }
+});
+
+// Đăng xuất
+document.getElementById('btnLogout').addEventListener('click', async () => {
+    await db.auth.signOut();
+    currentUser = null;
+    window.location.reload();
+});
+
+// ==========================================
+// CÁC HÀM XÓA, THÊM, CÀI ĐẶT KHÁC (Giữ nguyên)
+// ==========================================
 window.openDeleteModal = function(index) {
     deleteIndex = index;
     document.getElementById('deleteName').textContent = accounts[index].name;
@@ -225,7 +276,6 @@ document.getElementById('btnConfirmDelete').addEventListener('click', () => {
     }
 });
 
-// Các sự kiện khác
 document.getElementById('btnAdd').addEventListener('click', () => {
     document.getElementById('modalAdd').classList.remove('hidden');
     document.getElementById('modalAdd').classList.add('flex');
@@ -316,17 +366,4 @@ document.getElementById('btnImport').addEventListener('click', () => {
                         }
                     });
                     if (count > 0) { saveData(); renderAccounts(); autoSync(); alert(`Import thành công ${count} tài khoản!`); }
-                    else { alert("Tất cả tài khoản đã có sẵn."); }
-                } else { alert("Không tìm thấy mã 2FA."); }
-            } catch (err) { alert("Lỗi đọc file JSON."); }
-        };
-        reader.readAsText(file);
-    };
-    input.click();
-});
-
-document.getElementById('btnLogout')?.addEventListener('click', async () => {
-    await db.auth.signOut();
-    currentUser = null;
-    window.location.href = "/login";
-});
+                    else { alert("
