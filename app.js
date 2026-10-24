@@ -1,7 +1,7 @@
 // Cấu hình Supabase
 const SUPABASE_URL = 'https://skswuorigvxwwugpldvn.supabase.co';
 const SUPABASE_KEY = 'postgresql://postgres.skwsuorigvxwwugpldvn:[LuongHung0707@123]@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let accounts = [];
 let settings = { theme: 'light', password: '', biometricId: null };
