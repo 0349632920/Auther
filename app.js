@@ -7,25 +7,22 @@ let settings = { theme: 'light', password: '' };
 let currentUser = null;
 let deleteIndex = -1;
 let isCloudLoaded = false;
-let isAppLocked = false; // Biến kiểm tra xem app có đang bị khóa không
+let isAppLocked = false;
+let currentShareSecret = null;
+let autoLockTimer;
+let html5QrCode = null; // Biến cho QR Scanner
 
 // ==========================================
-// HÀM HIỂN THỊ THÔNG BÁO (TOAST)
+// CÁC HÀM TIỆN ÍCH
 // ==========================================
 function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
-
     const icon = type === 'error' ? '<i class="fas fa-exclamation-circle text-lg"></i>' : '<i class="fas fa-check-circle text-lg"></i>';
     toast.innerHTML = `${icon} <span>${message}</span>`;
-    
-    if (type === 'error') toast.style.backgroundColor = '#EF4444';
-    else if (type === 'success') toast.style.backgroundColor = '#10B981';
-    else toast.style.backgroundColor = '#00A2FF';
-
+    toast.style.backgroundColor = type === 'error' ? '#EF4444' : '#10B981';
     toast.classList.remove('opacity-0', 'translate-y-10');
     toast.classList.add('opacity-100', 'translate-y-0');
-
     clearTimeout(window.toastTimeout);
     window.toastTimeout = setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-10');
@@ -33,9 +30,6 @@ function showNotification(message, type = 'error') {
     }, 3000);
 }
 
-// ==========================================
-// HÀM KIỂM TRA ĐĂNG NHẬP
-// ==========================================
 function checkLogin() {
     if (!currentUser) {
         showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
@@ -46,7 +40,81 @@ function checkLogin() {
 }
 
 // ==========================================
-// THUẬT TOÁN TẠO MÃ OTP
+// TÍNH NĂNG 5: TỰ ĐỘNG KHÓA (AUTO-LOCK)
+// ==========================================
+function resetAutoLock() {
+    if (!settings.password || isAppLocked) return;
+    clearTimeout(autoLockTimer);
+    autoLockTimer = setTimeout(() => {
+        isAppLocked = true;
+        document.getElementById('lockScreen').classList.remove('hidden-lock');
+        updateCodes(); // Che mã
+    }, 5 * 60 * 1000); // 5 phút
+}
+
+document.addEventListener('mousemove', resetAutoLock);
+document.addEventListener('keydown', resetAutoLock);
+
+// ==========================================
+// TÍNH NĂNG 2: MÃ HÓA DỮ LIỆU LOCAL (CRYPTOJS)
+// ==========================================
+function encryptData(text, password) {
+    if (!password) return text; 
+    return CryptoJS.AES.encrypt(text, password).toString();
+}
+
+function decryptData(ciphertext, password) {
+    if (!password) return ciphertext;
+    try {
+        const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+        return bytes.toString(CryptoJS.enc.Utf8);
+    } catch (e) { return null; }
+}
+
+function loadSettings() {
+    const saved = localStorage.getItem('proton_settings');
+    if (saved) {
+        try {
+            settings = JSON.parse(saved);
+            applyTheme(settings.theme);
+            if (settings.password) {
+                isAppLocked = true;
+                document.getElementById('lockScreen').classList.remove('hidden-lock');
+            }
+        } catch(e) {}
+    }
+}
+
+function saveSettings() { localStorage.setItem('proton_settings', JSON.stringify(settings)); }
+
+function applyTheme(theme) {
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+}
+
+function loadData() {
+    const saved = localStorage.getItem('proton_accounts');
+    if (saved) {
+        try {
+            let decrypted = saved;
+            if (settings.password) {
+                decrypted = decryptData(saved, settings.password);
+                if (!decrypted) { accounts = []; return; }
+            }
+            accounts = JSON.parse(decrypted);
+        } catch(e) { accounts = []; }
+        renderAccounts();
+    } else toggleEmptyState();
+}
+
+function saveData() {
+    const dataStr = JSON.stringify(accounts);
+    const encrypted = encryptData(dataStr, settings.password);
+    localStorage.setItem('proton_accounts', encrypted);
+}
+
+// ==========================================
+// OTP & ĐỒNG BỘ
 // ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
@@ -83,87 +151,60 @@ async function generateOTP(secret) {
     } catch (e) { return "Error"; }
 }
 
-// ==========================================
-// KHỞI TẠO
-// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
     setInterval(updateCodes, 1000);
     await checkUserSession();
+    
+    // TÍNH NĂNG 3: CHIA SẺ
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareSecret = urlParams.get('share_secret');
+    const shareName = urlParams.get('share_name');
+    if (shareSecret && shareName) {
+        if (confirm(`Bạn có muốn thêm tài khoản "${shareName}" từ link chia sẻ không?`)) {
+            accounts.push({ name: shareName, secret: shareSecret });
+            saveData(); renderAccounts(); autoSync();
+            showNotification("Đã thêm tài khoản từ link chia sẻ!", "success");
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // TÍNH NĂNG 6: KÉO THẢ (SORTABLE)
+    new Sortable(document.getElementById('sortableGrid'), {
+        animation: 150,
+        ghostClass: 'opacity-50',
+        onEnd: function (evt) {
+            const item = accounts.splice(evt.oldIndex, 1)[0];
+            accounts.splice(evt.newIndex, 0, item);
+            saveData(); autoSync();
+            showNotification("Đã sắp xếp lại!", "success");
+        }
+    });
 });
 
-const accountList = document.querySelector('#accountList .grid');
+const accountList = document.getElementById('sortableGrid');
 const emptyState = document.getElementById('emptyState');
 
-function loadSettings() {
-    const saved = localStorage.getItem('proton_settings');
-    if (saved) {
-        try {
-            settings = JSON.parse(saved);
-            applyTheme(settings.theme);
-            
-            // Nếu có mật khẩu bảo vệ, kích hoạt trạng thái Khóa (Che mã)
-            if (settings.password) {
-                isAppLocked = true;
-                if (document.getElementById('lockScreen')) {
-                    document.getElementById('lockScreen').classList.remove('hidden-lock');
-                }
-            }
-        } catch(e) {}
-    }
-}
-
-function saveSettings() { localStorage.setItem('proton_settings', JSON.stringify(settings)); }
-
-function applyTheme(theme) {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-}
-
-function loadData() {
-    const saved = localStorage.getItem('proton_accounts');
-    if (saved) {
-        try { accounts = JSON.parse(saved); } catch(e) { accounts = []; }
-        renderAccounts();
-    } else toggleEmptyState();
-}
-
-function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
-
-// ==========================================
-// ĐỒNG BỘ & TẢI DỮ LIỆU
-// ==========================================
 async function checkUserSession() {
     try {
         const { data: { session }, error: sessionError } = await db.auth.getSession();
         if (sessionError) throw sessionError;
-        
         if (session) {
             currentUser = session.user;
-            const displayName = currentUser.email.replace('@myauth.local', '');
-            const profileEmailEl = document.getElementById('profileEmail');
-            if (profileEmailEl) profileEmailEl.textContent = displayName;
-            
-            const iconUser = document.getElementById('iconUser');
-            if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
+            document.getElementById('profileEmail').textContent = currentUser.email.replace('@myauth.local', '');
+            document.getElementById('iconUser').className = "fas fa-user-circle text-roblox text-xl";
 
             const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).maybeSingle();
-            
             if (!error && data) {
                 if (data.accounts && data.accounts.length > 0) {
                     accounts = data.accounts;
                     saveData(); renderAccounts(); 
                 }
-                if (data.settings) { 
-                    settings = data.settings; 
-                    saveSettings(); applyTheme(settings.theme); 
-                }
+                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
             }
             isCloudLoaded = true;
-        } else {
-            window.location.href = "/login";
-        }
+        } else { window.location.href = "/login"; }
     } catch (err) { console.warn("Lỗi session:", err.message); }
 }
 
@@ -174,9 +215,6 @@ async function autoSync() {
     } catch (err) { console.warn("Lỗi đồng bộ:", err.message); }
 }
 
-// ==========================================
-// RENDER GIAO DIỆN
-// ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -188,7 +226,7 @@ function renderAccounts() {
         card.style.animationDelay = `${index * 0.05}s`;
         
         card.onclick = (e) => {
-            if (e.target.closest('.btn-delete')) return; 
+            if (e.target.closest('.btn-delete') || e.target.closest('.btn-share')) return; 
             if (isAppLocked) {
                 showNotification("Vui lòng mở khóa ứng dụng để copy mã!", "error");
                 return;
@@ -199,10 +237,15 @@ function renderAccounts() {
         };
         
         card.innerHTML = `
-            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors z-10" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
-                <i class="fas fa-trash-alt text-sm"></i>
-            </button>
-            <div class="flex items-start justify-between pr-8">
+            <div class="absolute top-4 right-4 flex gap-1 z-10">
+                <button class="btn-share w-8 h-8 flex items-center justify-center text-gray-300 hover:text-roblox hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors" onclick="openShareModal('${account.secret}', '${account.name}')" title="Chia sẻ">
+                    <i class="fas fa-share-alt text-sm"></i>
+                </button>
+                <button class="btn-delete w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
+                    <i class="fas fa-trash-alt text-sm"></i>
+                </button>
+            </div>
+            <div class="flex items-start justify-between pr-16">
                 <div class="flex items-center gap-3.5">
                     <div class="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 text-roblox flex items-center justify-center font-bold text-xl border border-gray-200 dark:border-gray-700 group-hover:bg-roblox group-hover:text-white transition-colors duration-300">${account.name.charAt(0).toUpperCase()}</div>
                     <div>
@@ -210,13 +253,16 @@ function renderAccounts() {
                         <p class="text-xs text-gray-400 mt-1 font-semibold">2FA Code</p>
                     </div>
                 </div>
-                <div class="relative w-9 h-9 flex items-center justify-center shrink-0">
-                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36"><path class="text-gray-200 dark:text-gray-600" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="text-roblox arc" stroke-dasharray="100, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg>
-                </div>
             </div>
             <div class="mt-5 flex items-end justify-between">
                 <div class="text-[32px] font-mono font-bold tracking-tight text-gray-900 dark:text-white code-display leading-none" data-secret="${account.secret}">------ ------</div>
-                <div class="flex flex-col items-end"><span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider next-label">Next</span><span class="text-sm text-gray-500 dark:text-gray-400 font-semibold sec-label">30s</span></div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Next</span>
+                    <div class="relative w-9 h-9 flex items-center justify-center shrink-0 mt-1">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36"><path class="text-gray-200 dark:text-gray-600" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="text-roblox arc" stroke-dasharray="100, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg>
+                    </div>
+                    <span class="text-[10px] text-gray-500 font-semibold sec-label mt-1">30s</span>
+                </div>
             </div>
         `;
         accountList.appendChild(card);
@@ -236,12 +282,7 @@ async function updateCodes() {
     });
     
     document.querySelectorAll('.code-display').forEach(async el => {
-        // NẾU APP ĐANG BỊ KHÓA, HIỂN THỊ DẤU CHẤM THAY VÌ MÃ
-        if (isAppLocked) {
-            el.textContent = "••• •••";
-            return;
-        }
-        
+        if (isAppLocked) { el.textContent = "••• •••"; return; }
         const secret = el.getAttribute('data-secret');
         if (!secret) return;
         const code = await generateOTP(secret);
@@ -271,7 +312,111 @@ function toggleEmptyState() {
 }
 
 // ==========================================
-// SỰ KIỆN NGƯỜI DÙNG & PROFILE
+// TÍNH NĂNG 3: CHIA SẺ (MODAL)
+// ==========================================
+window.openShareModal = function(secret, name) {
+    if (!checkLogin()) return;
+    currentShareSecret = secret;
+    
+    // Tạo link share (giả lập mã hóa base64)
+    const encodedSecret = btoa(secret);
+    const encodedName = encodeURIComponent(name);
+    const shareUrl = `${window.location.origin}/?share_secret=${encodedSecret}&share_name=${encodedName}`;
+    
+    document.getElementById('shareLink').value = shareUrl;
+    document.getElementById('modalShare').classList.remove('hidden');
+    document.getElementById('modalShare').classList.add('flex');
+}
+
+document.getElementById('btnCloseShare').addEventListener('click', () => {
+    document.getElementById('modalShare').classList.add('hidden');
+    document.getElementById('modalShare').classList.remove('flex');
+});
+
+document.getElementById('btnCopyShare').addEventListener('click', () => {
+    const link = document.getElementById('shareLink').value;
+    navigator.clipboard.writeText(link).then(() => {
+        showNotification("Đã copy link chia sẻ!", "success");
+        document.getElementById('modalShare').classList.add('hidden');
+        document.getElementById('modalShare').classList.remove('flex');
+    });
+});
+
+// ==========================================
+// TÍNH NĂNG 4: QUÉT QR (CAMERA)
+// ==========================================
+document.getElementById('btnScanQR').addEventListener('click', () => {
+    document.getElementById('modalQR').classList.remove('hidden');
+    document.getElementById('modalQR').classList.add('flex');
+    
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText, decodedResult) => {
+            // Xử lý khi quét thành công
+            html5QrCode.stop().then(() => {
+                document.getElementById('modalQR').classList.add('hidden');
+                document.getElementById('modalQR').classList.remove('flex');
+                
+                // Bóc tách otpauth://
+                try {
+                    const url = new URL(decodedText);
+                    const secret = url.searchParams.get("secret");
+                    const issuer = url.searchParams.get("issuer") || url.pathname.split("/").pop();
+                    if (secret) {
+                        document.getElementById('inputName').value = issuer;
+                        document.getElementById('inputSecret').value = secret;
+                        showNotification("Đã quét mã QR thành công!", "success");
+                    }
+                } catch (e) {
+                    showNotification("Mã QR không hợp lệ!", "error");
+                }
+            });
+        }
+    ).catch(err => {
+        showNotification("Không thể bật Camera! Hãy cấp quyền.", "error");
+        document.getElementById('modalQR').classList.add('hidden');
+        document.getElementById('modalQR').classList.remove('flex');
+    });
+});
+
+document.getElementById('btnCloseQR').addEventListener('click', () => {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            document.getElementById('modalQR').classList.add('hidden');
+            document.getElementById('modalQR').classList.remove('flex');
+        });
+    } else {
+        document.getElementById('modalQR').classList.add('hidden');
+        document.getElementById('modalQR').classList.remove('flex');
+    }
+});
+
+// ==========================================
+// TÍNH NĂNG 1: XUẤT FILE (EXPORT)
+// ==========================================
+document.getElementById('btnExport').addEventListener('click', () => {
+    if (!checkLogin()) return;
+    if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
+    
+    const dataStr = JSON.stringify(accounts, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `authenticator_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showNotification("Đã xuất file JSON thành công!", "success");
+});
+
+// ==========================================
+// CÁC SỰ KIỆN GIAO DIỆN KHÁC
 // ==========================================
 const btnUser = document.getElementById('btnUser');
 if (btnUser) {
@@ -287,101 +432,63 @@ if (btnUser) {
     });
 }
 
-const btnCloseProfile = document.getElementById('btnCloseProfile');
-if (btnCloseProfile) {
-    btnCloseProfile.addEventListener('click', () => {
-        document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            const modal = document.getElementById('modalProfile');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }, 200);
-    });
-}
+document.getElementById('btnCloseProfile').addEventListener('click', () => {
+    document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalProfile').classList.add('hidden');
+        document.getElementById('modalProfile').classList.remove('flex');
+    }, 200);
+});
 
-const btnChangePassword = document.getElementById('btnChangePassword');
-if (btnChangePassword) {
-    btnChangePassword.addEventListener('click', async () => {
-        if (!checkLogin()) return;
+document.getElementById('btnChangePassword').addEventListener('click', async () => {
+    if (!checkLogin()) return;
+    const oldPass = document.getElementById('oldPassword').value.trim();
+    const newPass = document.getElementById('newPassword').value.trim();
+    const userEmail = currentUser.email;
 
-        const oldPass = document.getElementById('oldPassword').value.trim();
-        const newPass = document.getElementById('newPassword').value.trim();
-        const userEmail = currentUser.email;
+    if (!oldPass) return showNotification("Vui lòng nhập mật khẩu hiện tại!", "error");
+    if (!newPass || newPass.length < 6) return showNotification("Mật khẩu mới phải từ 6 ký tự trở lên!", "error");
 
-        if (!oldPass) return showNotification("Vui lòng nhập mật khẩu hiện tại!", "error");
-        if (!newPass || newPass.length < 6) return showNotification("Mật khẩu mới phải từ 6 ký tự trở lên!", "error");
+    try {
+        const { error: signInError } = await db.auth.signInWithPassword({ email: userEmail, password: oldPass });
+        if (signInError) return showNotification("Mật khẩu hiện tại không chính xác!", "error");
 
-        try {
-            const { error: signInError } = await db.auth.signInWithPassword({ email: userEmail, password: oldPass });
-            if (signInError) return showNotification("Mật khẩu hiện tại không chính xác!", "error");
+        const { error: updateError } = await db.auth.updateUser({ password: newPass });
+        if (updateError) throw updateError;
 
-            const { error: updateError } = await db.auth.updateUser({ password: newPass });
-            if (updateError) throw updateError;
+        showNotification("Đổi mật khẩu thành công!", "success");
+        document.getElementById('oldPassword').value = '';
+        document.getElementById('newPassword').value = '';
+    } catch (err) { showNotification("Lỗi đổi mật khẩu: " + err.message, "error"); }
+});
 
-            showNotification("Đổi mật khẩu thành công!", "success");
-            document.getElementById('oldPassword').value = '';
-            document.getElementById('newPassword').value = '';
-        } catch (err) { showNotification("Lỗi đổi mật khẩu: " + err.message, "error"); }
-    });
-}
+document.getElementById('btnLogout').addEventListener('click', () => {
+    if (!checkLogin()) return;
+    document.getElementById('modalLogout').classList.remove('hidden');
+    document.getElementById('modalLogout').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalLogoutContent').style.transform = 'scale(1)'; }, 50);
+});
 
-// ==========================================
-// XỬ LÝ ĐĂNG XUẤT
-// ==========================================
-const btnLogout = document.getElementById('btnLogout');
-if (btnLogout) {
-    btnLogout.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        const modalLogout = document.getElementById('modalLogout');
-        modalLogout.classList.remove('hidden');
-        modalLogout.classList.add('flex');
-        setTimeout(() => { document.getElementById('modalLogoutContent').style.transform = 'scale(1)'; }, 50);
-    });
-}
+document.getElementById('btnCancelLogout').addEventListener('click', () => {
+    document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalLogout').classList.add('hidden');
+        document.getElementById('modalLogout').classList.remove('flex');
+    }, 200);
+});
 
-const btnCancelLogout = document.getElementById('btnCancelLogout');
-if (btnCancelLogout) {
-    btnCancelLogout.addEventListener('click', () => {
-        document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            const modalLogout = document.getElementById('modalLogout');
-            modalLogout.classList.add('hidden');
-            modalLogout.classList.remove('flex');
-        }, 200);
-    });
-}
+document.getElementById('btnConfirmLogout').addEventListener('click', async () => {
+    await db.auth.signOut();
+    currentUser = null;
+    localStorage.removeItem('proton_accounts');
+    localStorage.removeItem('proton_settings');
+    sessionStorage.clear();
+    window.location.href = "/login";
+});
 
-const btnConfirmLogout = document.getElementById('btnConfirmLogout');
-if (btnConfirmLogout) {
-    btnConfirmLogout.addEventListener('click', async () => {
-        await db.auth.signOut();
-        currentUser = null;
-        localStorage.removeItem('proton_accounts');
-        localStorage.removeItem('proton_settings');
-        sessionStorage.clear();
-        accounts = [];
-        settings = { theme: 'light', password: '' }; 
-        isCloudLoaded = false;
-        
-        document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            const modalLogout = document.getElementById('modalLogout');
-            modalLogout.classList.add('hidden');
-            modalLogout.classList.remove('flex');
-            window.location.reload();
-        }, 200);
-    });
-}
-
-// ==========================================
-// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT
-// ==========================================
 window.openDeleteModal = function(index) {
     if (!checkLogin()) return;
-    if (isAppLocked) {
-        showNotification("Vui lòng mở khóa ứng dụng để xóa mã!", "error");
-        return;
-    }
+    if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để xóa mã!", "error");
     deleteIndex = index;
     document.getElementById('deleteName').textContent = accounts[index].name;
     document.getElementById('modalDelete').classList.remove('hidden');
@@ -389,215 +496,162 @@ window.openDeleteModal = function(index) {
     setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
 }
 
-const btnCancelDelete = document.getElementById('btnCancelDelete');
-if (btnCancelDelete) {
-    btnCancelDelete.addEventListener('click', () => {
+document.getElementById('btnCancelDelete').addEventListener('click', () => {
+    document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalDelete').classList.add('hidden');
+        document.getElementById('modalDelete').classList.remove('flex');
+    }, 200);
+});
+
+document.getElementById('btnConfirmDelete').addEventListener('click', () => {
+    if (!checkLogin()) return;
+    if (deleteIndex > -1) {
+        accounts.splice(deleteIndex, 1); 
+        saveData(); renderAccounts(); autoSync(); 
+        showNotification("Đã xóa tài khoản!", "success");
         document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
         setTimeout(() => {
             document.getElementById('modalDelete').classList.add('hidden');
             document.getElementById('modalDelete').classList.remove('flex');
         }, 200);
-    });
-}
+        deleteIndex = -1;
+    }
+});
 
-const btnConfirmDelete = document.getElementById('btnConfirmDelete');
-if (btnConfirmDelete) {
-    btnConfirmDelete.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (deleteIndex > -1) {
-            accounts.splice(deleteIndex, 1); 
-            saveData(); renderAccounts(); autoSync(); 
-            showNotification("Đã xóa tài khoản!", "success");
-            document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                document.getElementById('modalDelete').classList.add('hidden');
-                document.getElementById('modalDelete').classList.remove('flex');
-            }, 200);
-            deleteIndex = -1;
-        }
-    });
-}
+document.getElementById('btnAdd').addEventListener('click', () => {
+    if (!checkLogin()) return;
+    if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
+    document.getElementById('modalAdd').classList.remove('hidden');
+    document.getElementById('modalAdd').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
+});
 
-const btnAdd = document.getElementById('btnAdd');
-if (btnAdd) {
-    btnAdd.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) {
-            showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
-            return;
-        }
-        document.getElementById('modalAdd').classList.remove('hidden');
-        document.getElementById('modalAdd').classList.add('flex');
-        setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
-    });
-}
+document.getElementById('btnCancelAdd').addEventListener('click', () => {
+    document.getElementById('modalAddContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalAdd').classList.add('hidden');
+        document.getElementById('modalAdd').classList.remove('flex');
+    }, 200);
+});
 
-const btnCancelAdd = document.getElementById('btnCancelAdd');
-if (btnCancelAdd) {
-    btnCancelAdd.addEventListener('click', () => {
-        document.getElementById('modalAddContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            document.getElementById('modalAdd').classList.add('hidden');
-            document.getElementById('modalAdd').classList.remove('flex');
-        }, 200);
-    });
-}
+document.getElementById('btnCloseModal').addEventListener('click', () => {
+    document.getElementById('btnCancelAdd').click();
+});
 
-const btnCloseModal = document.getElementById('btnCloseModal');
-if (btnCloseModal) {
-    btnCloseModal.addEventListener('click', () => {
-        document.getElementById('btnCancelAdd').click();
-    });
-}
+document.getElementById('btnSaveAdd').addEventListener('click', async () => {
+    if (!checkLogin()) return;
+    const name = document.getElementById('inputName').value.trim();
+    let secret = document.getElementById('inputSecret').value.trim();
+    if (!name || !secret) return showNotification("Vui lòng nhập đủ thông tin!", "error");
+    if (secret.startsWith('otpauth://')) {
+        const match = secret.match(/[?&]secret=([^&]+)/);
+        if (match) secret = decodeURIComponent(match[1]);
+    }
+    accounts.push({ name, secret });
+    saveData(); renderAccounts(); autoSync();
+    showNotification("Đã thêm tài khoản!", "success");
+    document.getElementById('inputName').value = '';
+    document.getElementById('inputSecret').value = '';
+    document.getElementById('btnCancelAdd').click();
+});
 
-const btnSaveAdd = document.getElementById('btnSaveAdd');
-if (btnSaveAdd) {
-    btnSaveAdd.addEventListener('click', async () => {
-        if (!checkLogin()) return;
-        const name = document.getElementById('inputName').value.trim();
-        let secret = document.getElementById('inputSecret').value.trim();
-        if (!name || !secret) return showNotification("Vui lòng nhập đủ thông tin!", "error");
-        if (secret.startsWith('otpauth://')) {
-            const match = secret.match(/[?&]secret=([^&]+)/);
-            if (match) secret = decodeURIComponent(match[1]);
-        }
-        accounts.push({ name, secret });
-        saveData(); renderAccounts(); autoSync();
-        showNotification("Đã thêm tài khoản!", "success");
-        document.getElementById('inputName').value = '';
-        document.getElementById('inputSecret').value = '';
-        document.getElementById('btnCancelAdd').click();
-    });
-}
+document.getElementById('btnSettings').addEventListener('click', () => {
+    if (!checkLogin()) return;
+    if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thay đổi cài đặt!", "error");
+    document.getElementById('modalSettings').classList.remove('hidden');
+    document.getElementById('modalSettings').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
+});
 
-const btnSettings = document.getElementById('btnSettings');
-if (btnSettings) {
-    btnSettings.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) {
-            showNotification("Vui lòng mở khóa ứng dụng để thay đổi cài đặt!", "error");
-            return;
-        }
-        document.getElementById('modalSettings').classList.remove('hidden');
-        document.getElementById('modalSettings').classList.add('flex');
-        setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
-    });
-}
+document.getElementById('btnCloseSettings').addEventListener('click', () => {
+    document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalSettings').classList.add('hidden');
+        document.getElementById('modalSettings').classList.remove('flex');
+    }, 200);
+});
 
-const btnCloseSettings = document.getElementById('btnCloseSettings');
-if (btnCloseSettings) {
-    btnCloseSettings.addEventListener('click', () => {
-        document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            document.getElementById('modalSettings').classList.add('hidden');
-            document.getElementById('modalSettings').classList.remove('flex');
-        }, 200);
-    });
-}
+document.getElementById('btnToggleTheme').addEventListener('click', () => {
+    settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+    applyTheme(settings.theme);
+});
 
-const btnToggleTheme = document.getElementById('btnToggleTheme');
-if (btnToggleTheme) {
-    btnToggleTheme.addEventListener('click', () => {
-        settings.theme = settings.theme === 'light' ? 'dark' : 'light';
-        applyTheme(settings.theme);
-    });
-}
+document.getElementById('btnSaveSettings').addEventListener('click', () => {
+    if (!checkLogin()) return;
+    settings.password = document.getElementById('inputPassword').value.trim();
+    saveSettings(); autoSync();
+    document.getElementById('btnCloseSettings').click();
+    showNotification("Đã lưu cài đặt!", "success");
+});
 
-const btnSaveSettings = document.getElementById('btnSaveSettings');
-if (btnSaveSettings) {
-    btnSaveSettings.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        settings.password = document.getElementById('inputPassword').value.trim();
-        saveSettings(); autoSync();
-        document.getElementById('btnCloseSettings').click();
-        showNotification("Đã lưu cài đặt!", "success");
-    });
-}
-
-// ==========================================
-// IMPORT FILE JSON
-// ==========================================
-const btnImport = document.getElementById('btnImport');
-if (btnImport) {
-    btnImport.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) {
-            showNotification("Vui lòng mở khóa ứng dụng để Import!", "error");
-            return;
-        }
-        const input = document.createElement('input');
-        input.type = 'file'; input.accept = '.json';
-        input.onchange = e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = event => {
-                try {
-                    const data = JSON.parse(event.target.result);
-                    if (data.salt && data.content && !data.entries) { 
-                        return showNotification("LỖI: File bị MÃ HÓA! Hãy xuất dạng Plain text.", "error"); 
-                    }
-                    let extractedAccounts = [];
-                    function scanObject(obj) {
-                        if (!obj) return;
-                        if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
-                        if (typeof obj === 'object') {
-                            let name = obj.name || obj.title || obj.issuer || "Tài khoản";
-                            let secret = obj.secret || obj.key || null;
-                            let uri = obj.uri || obj.otpauth || null;
-                            if (!secret && uri && typeof uri === 'string') {
-                                const match = uri.match(/[?&]secret=([^&]+)/);
-                                if (match) secret = decodeURIComponent(match[1]);
-                            }
-                            if (secret && typeof secret === 'string') {
-                                if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name: name, secret: secret });
-                            }
-                            for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
+document.getElementById('btnImport').addEventListener('click', () => {
+    if (!checkLogin()) return;
+    if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để Import!", "error");
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = event => {
+            try {
+                const data = JSON.parse(event.target.result);
+                if (data.salt && data.content && !data.entries) { 
+                    return showNotification("LỖI: File bị MÃ HÓA! Hãy xuất dạng Plain text.", "error"); 
+                }
+                let extractedAccounts = [];
+                function scanObject(obj) {
+                    if (!obj) return;
+                    if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
+                    if (typeof obj === 'object') {
+                        let name = obj.name || obj.title || obj.issuer || "Tài khoản";
+                        let secret = obj.secret || obj.key || null;
+                        let uri = obj.uri || obj.otpauth || null;
+                        if (!secret && uri && typeof uri === 'string') {
+                            const match = uri.match(/[?&]secret=([^&]+)/);
+                            if (match) secret = decodeURIComponent(match[1]);
                         }
-                    }
-                    scanObject(data);
-                    let count = 0;
-                    if (extractedAccounts.length > 0) {
-                        extractedAccounts.forEach(newAcc => {
-                            if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
-                                accounts.push(newAcc); count++;
-                            }
-                        });
-                        if (count > 0) { 
-                            saveData(); renderAccounts(); autoSync(); 
-                            showNotification(`Import thành công ${count} tài khoản!`, "success"); 
+                        if (secret && typeof secret === 'string') {
+                            if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name: name, secret: secret });
                         }
-                        else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
-                    } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
-                } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
-            };
-            reader.readAsText(file);
+                        for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
+                    }
+                }
+                scanObject(data);
+                let count = 0;
+                if (extractedAccounts.length > 0) {
+                    extractedAccounts.forEach(newAcc => {
+                        if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
+                            accounts.push(newAcc); count++;
+                        }
+                    });
+                    if (count > 0) { 
+                        saveData(); renderAccounts(); autoSync(); 
+                        showNotification(`Import thành công ${count} tài khoản!`, "success"); 
+                    }
+                    else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
+                } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
+            } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
         };
-        input.click();
-    });
-}
+        reader.readAsText(file);
+    };
+    input.click();
+});
 
-// ==========================================
-// MÀN HÌNH KHÓA (XỬ LÝ MỞ KHÓA)
-// ==========================================
-const btnUnlock = document.getElementById('btnUnlock');
-if (btnUnlock) {
-    btnUnlock.addEventListener('click', () => {
-        const pass = document.getElementById('unlockPass').value.trim();
-        if (pass === settings.password) {
-            isAppLocked = false; // Mở khóa thành công
-            document.getElementById('lockScreen').classList.add('hidden-lock');
-            document.getElementById('unlockPass').value = '';
-            updateCodes(); // Cập nhật lại mã ngay lập tức
-        } else {
-            showNotification("Mật khẩu không chính xác!", "error");
-        }
-    });
-}
+document.getElementById('btnUnlock').addEventListener('click', () => {
+    const pass = document.getElementById('unlockPass').value.trim();
+    if (pass === settings.password) {
+        isAppLocked = false; 
+        document.getElementById('lockScreen').classList.add('hidden-lock');
+        document.getElementById('unlockPass').value = '';
+        updateCodes(); 
+        resetAutoLock(); // Bắt đầu đếm ngược tự động khóa
+    } else {
+        showNotification("Mật khẩu không chính xác!", "error");
+    }
+});
 
-const unlockPassInput = document.getElementById('unlockPass');
-if (unlockPassInput) {
-    unlockPassInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') document.getElementById('btnUnlock').click();
-    });
-}
+document.getElementById('unlockPass').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('btnUnlock').click();
+});
