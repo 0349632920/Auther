@@ -366,4 +366,11 @@ document.getElementById('btnImport').addEventListener('click', () => {
                         }
                     });
                     if (count > 0) { saveData(); renderAccounts(); autoSync(); alert(`Import thành công ${count} tài khoản!`); }
-                    else { alert("
+                    else { alert("Tất cả tài khoản đã có sẵn."); }
+                } else { alert("Không tìm thấy mã 2FA."); }
+            } catch (err) { alert("Lỗi đọc file JSON."); }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+});
