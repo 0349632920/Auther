@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roblox Auth</title>
+    <title>HungAuth - Bảo mật 2FA</title>
     
     <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,16 +20,14 @@
                 extend: { 
                     fontFamily: { sans: ['Hind', 'sans-serif'] }, 
                     colors: { 
-                        roblox: '#00A2FF', // Màu xanh đặc trưng của Roblox
+                        roblox: '#00A2FF', 
                         robloxDark: '#0084D1',
                         bg: '#F2F4F5',
                         darkbg: '#232527',
                         darkcard: '#393B3D',
                         robloxGray: '#E3E5E7'
                     }, 
-                    boxShadow: { 
-                        'soft': '0 4px 10px rgba(0, 0, 0, 0.08)' 
-                    } 
+                    boxShadow: { 'soft': '0 4px 10px rgba(0, 0, 0, 0.08)' } 
                 } 
             }
         }
@@ -37,52 +35,26 @@
     <link rel="stylesheet" href="style.css">
     
     <style>
-        /* CSS cho màn hình khóa */
         #lockScreen {
-            position: fixed;
-            inset: 0;
-            background: #F2F4F5;
-            z-index: 999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            position: fixed; inset: 0; background: #F2F4F5; z-index: 999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             transition: opacity 0.4s ease;
         }
-        .dark #lockScreen {
-            background: #232527;
-        }
-        #lockScreen.hidden-lock {
-            opacity: 0;
-            pointer-events: none;
-        }
+        .dark #lockScreen { background: #232527; }
+        #lockScreen.hidden-lock { opacity: 0; pointer-events: none; }
         
-        /* Roblox Button Style */
         .roblox-btn {
-            background-color: #00A2FF;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: all 0.2s ease;
+            background-color: #00A2FF; border-radius: 8px; font-weight: 600; transition: all 0.2s ease;
         }
         .roblox-btn:hover { background-color: #0084D1; }
         .roblox-btn:active { transform: scale(0.96); }
         
-        /* Roblox Card Style */
         .roblox-card {
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-            border: 1px solid #E3E5E7;
-            transition: all 0.2s ease;
+            background-color: #FFFFFF; border-radius: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid #E3E5E7; transition: all 0.2s ease;
         }
-        .dark .roblox-card {
-            background-color: #393B3D;
-            border: 1px solid #4A4D50;
-        }
-        .roblox-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-        }
+        .dark .roblox-card { background-color: #393B3D; border: 1px solid #4A4D50; }
+        .roblox-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
@@ -124,15 +96,13 @@
 
     <!-- DANH SÁCH TÀI KHOẢN -->
     <div id="accountList" class="flex-1 overflow-y-auto px-6 md:px-8 pb-10">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-max">
-            <!-- Các thẻ được render ở đây -->
-        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-max"></div>
         <div id="emptyState" class="flex flex-col items-center justify-center h-full mt-20 hidden opacity-0 transition-opacity duration-500">
             <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
                 <i class="fas fa-shield-alt text-4xl text-gray-400"></i>
             </div>
             <h2 class="text-2xl font-bold text-gray-700 dark:text-gray-300">Chưa có tài khoản nào</h2>
-            <p class="text-gray-500 text-sm mt-2">Thêm tài khoản để bảo vệ tài khoản Roblox của bạn.</p>
+            <p class="text-gray-500 text-sm mt-2">Thêm tài khoản để bảo vệ tài khoản của bạn.</p>
         </div>
     </div>
 
@@ -226,7 +196,21 @@
         </div>
     </div>
 
-    <!-- Nhúng file Javascript xử lý logic -->
+    <!-- MODAL XÁC NHẬN ĐĂNG XUẤT -->
+    <div id="modalLogout" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modalLogoutContent">
+            <div class="w-14 h-14 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">
+                <i class="fas fa-sign-out-alt"></i>
+            </div>
+            <h2 class="text-xl font-bold mb-2">Đăng xuất?</h2>
+            <p class="text-gray-500 mb-6 text-sm">Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này không?</p>
+            <div class="flex justify-center gap-3">
+                <button id="btnCancelLogout" class="px-5 py-2.5 rounded-xl text-gray-600 dark:text-gray-400 font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition">Hủy</button>
+                <button id="btnConfirmLogout" class="px-5 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 shadow-md transition">Đăng xuất</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
