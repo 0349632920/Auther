@@ -3,14 +3,15 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let accounts = [];
-// Mặc định bật autoLock (true)
 let settings = { theme: 'light', password: '', autoLock: true }; 
 let currentUser = null;
 let deleteIndex = -1;
 let isCloudLoaded = false;
 let isAppLocked = false;
 
-// Hàm hiển thị thông báo
+// ==========================================
+// HÀM HIỂN THỊ THÔNG BÁO
+// ==========================================
 function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
@@ -35,7 +36,9 @@ function checkLogin() {
     return true;
 }
 
-// Thuật toán OTP
+// ==========================================
+// THUẬT TOÁN OTP
+// ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
@@ -71,12 +74,15 @@ async function generateOTP(secret, offset = 0) {
     } catch (e) { return "Error"; }
 }
 
-// Khởi tạo
+// ==========================================
+// KHỞI TẠO HỆ THỐNG
+// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
     setInterval(updateCodes, 1000);
     await checkUserSession();
+    setupEventListeners(); // Gắn sự kiện sau khi HTML đã tải xong
 });
 
 const accountList = document.querySelector('#accountList .grid');
@@ -87,12 +93,9 @@ function loadSettings() {
     if (saved) {
         try {
             settings = JSON.parse(saved);
-            // Đảm bảo biến autoLock luôn tồn tại
             if (settings.autoLock === undefined) settings.autoLock = true; 
-            
             applyTheme(settings.theme);
-            updateAutoLockUI(); // Cập nhật giao diện nút gạt
-
+            updateAutoLockUI();
             if (settings.password) {
                 isAppLocked = true;
                 if (document.getElementById('lockScreen')) {
@@ -136,7 +139,9 @@ function loadData() {
 
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
-// Đồng bộ
+// ==========================================
+// ĐỒNG BỘ SUPABASE
+// ==========================================
 async function checkUserSession() {
     try {
         const { data: { session } } = await db.auth.getSession();
@@ -145,6 +150,7 @@ async function checkUserSession() {
             const displayName = currentUser.email.replace('@myauth.local', '');
             const profileEmailEl = document.getElementById('profileEmail');
             if (profileEmailEl) profileEmailEl.textContent = displayName;
+            
             const iconUser = document.getElementById('iconUser');
             if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
 
@@ -154,8 +160,10 @@ async function checkUserSession() {
                 if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); updateAutoLockUI(); }
             }
             isCloudLoaded = true;
-        } else { window.location.href = "/login"; }
-    } catch (err) { console.warn(err); }
+        } else { 
+            window.location.href = "/login"; 
+        }
+    } catch (err) { console.warn("Lỗi session:", err.message); }
 }
 
 async function autoSync() {
@@ -163,7 +171,9 @@ async function autoSync() {
     await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
 }
 
-// Render
+// ==========================================
+// RENDER GIAO DIỆN
+// ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -176,7 +186,7 @@ function renderAccounts() {
         
         card.onclick = (e) => {
             if (e.target.closest('.btn-delete')) return; 
-            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
+            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để copy mã!", "error");
             card.style.transform = 'scale(0.96)';
             setTimeout(() => { card.style.transform = ''; }, 150);
             copyCode(account.secret);
@@ -242,7 +252,7 @@ async function updateCodes() {
 }
 
 async function copyCode(secret) {
-    if (isAppLocked) return;
+    if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
     try {
         const code = await generateOTP(secret);
         if (code !== "Error") {
@@ -258,76 +268,258 @@ function toggleEmptyState() {
 }
 
 // ==========================================
-// TÍNH NĂNG TỰ ĐỘNG KHÓA KHI RỜI TAB
+// AUTO-LOCK KHI RỜI TAB
 // ==========================================
 document.addEventListener('visibilitychange', () => {
-    // Nếu tab bị ẩn VÀ người dùng có bật autoLock VÀ có cài mật khẩu
     if (document.hidden && settings.autoLock && settings.password) {
         isAppLocked = true;
-        document.getElementById('lockScreen').classList.remove('hidden-lock');
+        document.getElementById('lockScreen')?.classList.remove('hidden-lock');
         const unlockPass = document.getElementById('unlockPass');
         if (unlockPass) unlockPass.value = '';
-        updateCodes(); // Che mã ngay lập tức
+        updateCodes();
     }
 });
 
 // ==========================================
-// CÁC SỰ KIỆN GIAO DIỆN (Nút bấm)
+// GẮN SỰ KIỆN CHO TẤT CẢ CÁC NÚT
 // ==========================================
-// Cài đặt: Nút gạt Theme
-document.getElementById('btnToggleTheme')?.addEventListener('click', () => {
-    settings.theme = settings.theme === 'light' ? 'dark' : 'light';
-    applyTheme(settings.theme);
-});
+function setupEventListeners() {
+    // 1. Nút Thêm (Add)
+    document.getElementById('btnAdd')?.addEventListener('click', () => {
+        if (!checkLogin()) return;
+        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
+        document.getElementById('modalAdd').classList.remove('hidden');
+        document.getElementById('modalAdd').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
+    });
 
-// Cài đặt: Nút gạt AutoLock
-document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
-    settings.autoLock = !settings.autoLock;
-    updateAutoLockUI();
-});
+    document.getElementById('btnCancelAdd')?.addEventListener('click', () => {
+        document.getElementById('modalAddContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalAdd').classList.add('hidden');
+            document.getElementById('modalAdd').classList.remove('flex');
+        }, 200);
+    });
 
-// Lưu cài đặt
-document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
-    if (!checkLogin()) return;
-    settings.password = document.getElementById('inputPassword').value.trim();
-    saveSettings(); autoSync();
-    document.getElementById('btnCloseSettings').click();
-    showNotification("Đã lưu cài đặt!", "success");
-});
+    document.getElementById('btnCloseModal')?.addEventListener('click', () => {
+        document.getElementById('btnCancelAdd')?.click();
+    });
 
-// Mở modal Cài đặt
-document.getElementById('btnSettings')?.addEventListener('click', () => {
-    if (!checkLogin()) return;
-    if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thay đổi cài đặt!", "error");
-    
-    document.getElementById('inputPassword').value = settings.password;
-    updateAutoLockUI(); // Đảm bảo giao diện khớp với biến
-    document.getElementById('modalSettings').classList.remove('hidden');
-    document.getElementById('modalSettings').classList.add('flex');
-    setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
-});
+    document.getElementById('btnSaveAdd')?.addEventListener('click', async () => {
+        if (!checkLogin()) return;
+        const name = document.getElementById('inputName').value.trim();
+        let secret = document.getElementById('inputSecret').value.trim();
+        if (!name || !secret) return showNotification("Vui lòng nhập đủ thông tin!", "error");
+        if (secret.startsWith('otpauth://')) {
+            const match = secret.match(/[?&]secret=([^&]+)/);
+            if (match) secret = decodeURIComponent(match[1]);
+        }
+        accounts.push({ name, secret });
+        saveData(); renderAccounts(); autoSync();
+        showNotification("Đã thêm tài khoản!", "success");
+        document.getElementById('inputName').value = '';
+        document.getElementById('inputSecret').value = '';
+        document.getElementById('btnCancelAdd')?.click();
+    });
 
-// Đóng modal Cài đặt
-document.getElementById('btnCloseSettings')?.addEventListener('click', () => {
-    document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
-    setTimeout(() => {
-        document.getElementById('modalSettings').classList.add('hidden');
-        document.getElementById('modalSettings').classList.remove('flex');
-    }, 200);
-});
+    // 2. Nút Profile (User)
+    document.getElementById('btnUser')?.addEventListener('click', () => {
+        if (currentUser) {
+            document.getElementById('modalProfile').classList.remove('hidden');
+            document.getElementById('modalProfile').classList.add('flex');
+            setTimeout(() => { document.getElementById('modalProfileContent').style.transform = 'scale(1)'; }, 50);
+        } else { window.location.href = "/login"; }
+    });
 
-// Mở khóa app
-document.getElementById('btnUnlock')?.addEventListener('click', () => {
-    const pass = document.getElementById('unlockPass').value.trim();
-    if (pass === settings.password) {
-        isAppLocked = false; 
-        document.getElementById('lockScreen').classList.add('hidden-lock');
-        document.getElementById('unlockPass').value = '';
-        updateCodes(); 
-    } else {
-        showNotification("Mật khẩu không chính xác!", "error");
+    document.getElementById('btnCloseProfile')?.addEventListener('click', () => {
+        document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalProfile').classList.add('hidden');
+            document.getElementById('modalProfile').classList.remove('flex');
+        }, 200);
+    });
+
+    // 3. Nút Import
+    document.getElementById('btnImport')?.addEventListener('click', () => {
+        if (!checkLogin()) return;
+        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để Import!", "error");
+        
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.json';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    if (data.salt && data.content && !data.entries) { 
+                        return showNotification("LỖI: File bị MÃ HÓA! Hãy xuất dạng Plain text.", "error"); 
+                    }
+                    let extractedAccounts = [];
+                    function scanObject(obj) {
+                        if (!obj) return;
+                        if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
+                        if (typeof obj === 'object') {
+                            let name = obj.name || obj.title || obj.issuer || "Tài khoản";
+                            let secret = obj.secret || obj.key || null;
+                            let uri = obj.uri || obj.otpauth || null;
+                            if (!secret && uri && typeof uri === 'string') {
+                                const match = uri.match(/[?&]secret=([^&]+)/);
+                                if (match) secret = decodeURIComponent(match[1]);
+                            }
+                            if (secret && typeof secret === 'string') {
+                                if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name: name, secret: secret });
+                            }
+                            for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
+                        }
+                    }
+                    scanObject(data);
+                    let count = 0;
+                    if (extractedAccounts.length > 0) {
+                        extractedAccounts.forEach(newAcc => {
+                            if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
+                                accounts.push(newAcc); count++;
+                            }
+                        });
+                        if (count > 0) { 
+                            saveData(); renderAccounts(); autoSync(); 
+                            showNotification(`Import thành công ${count} tài khoản!`, "success"); 
+                        }
+                        else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
+                    } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
+                } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    });
+
+    // 4. Nút Cài đặt (Settings)
+    document.getElementById('btnSettings')?.addEventListener('click', () => {
+        if (!checkLogin()) return;
+        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thay đổi cài đặt!", "error");
+        
+        document.getElementById('inputPassword').value = settings.password;
+        updateAutoLockUI();
+        document.getElementById('modalSettings').classList.remove('hidden');
+        document.getElementById('modalSettings').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
+    });
+
+    document.getElementById('btnCloseSettings')?.addEventListener('click', () => {
+        document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalSettings').classList.add('hidden');
+            document.getElementById('modalSettings').classList.remove('flex');
+        }, 200);
+    });
+
+    document.getElementById('btnToggleTheme')?.addEventListener('click', () => {
+        settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+        applyTheme(settings.theme);
+    });
+
+    document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
+        settings.autoLock = !settings.autoLock;
+        updateAutoLockUI();
+    });
+
+    document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
+        settings.password = document.getElementById('inputPassword').value.trim();
+        saveSettings(); autoSync();
+        document.getElementById('btnCloseSettings')?.click();
+        showNotification("Đã lưu cài đặt!", "success");
+    });
+
+    // 5. Nút Đăng xuất
+    document.getElementById('btnLogout')?.addEventListener('click', () => {
+        if (!checkLogin()) return;
+        document.getElementById('modalLogout').classList.remove('hidden');
+        document.getElementById('modalLogout').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalLogoutContent').style.transform = 'scale(1)'; }, 50);
+    });
+
+    document.getElementById('btnCancelLogout')?.addEventListener('click', () => {
+        document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalLogout').classList.add('hidden');
+            document.getElementById('modalLogout').classList.remove('flex');
+        }, 200);
+    });
+
+    document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
+        await db.auth.signOut();
+        currentUser = null;
+        localStorage.removeItem('proton_accounts');
+        localStorage.removeItem('proton_settings');
+        sessionStorage.clear();
+        window.location.href = "/login";
+    });
+
+    // 6. Nút Xóa mã
+    window.openDeleteModal = function(index) {
+        if (!checkLogin() || isAppLocked) return;
+        deleteIndex = index;
+        document.getElementById('deleteName').textContent = accounts[index].name;
+        document.getElementById('modalDelete').classList.remove('hidden');
+        document.getElementById('modalDelete').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
     }
-});
-document.getElementById('unlockPass')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') document.getElementById('btnUnlock').click();
-});
+
+    document.getElementById('btnCancelDelete')?.addEventListener('click', () => {
+        document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalDelete').classList.add('hidden');
+            document.getElementById('modalDelete').classList.remove('flex');
+        }, 200);
+    });
+
+    document.getElementById('btnConfirmDelete')?.addEventListener('click', () => {
+        if (deleteIndex > -1) {
+            accounts.splice(deleteIndex, 1); 
+            saveData(); renderAccounts(); autoSync(); 
+            showNotification("Đã xóa tài khoản!", "success");
+            document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                document.getElementById('modalDelete').classList.add('hidden');
+                document.getElementById('modalDelete').classList.remove('flex');
+            }, 200);
+            deleteIndex = -1;
+        }
+    });
+
+    // 7. Màn hình khóa
+    document.getElementById('btnUnlock')?.addEventListener('click', () => {
+        const pass = document.getElementById('unlockPass').value.trim();
+        if (pass === settings.password) {
+            isAppLocked = false; 
+            document.getElementById('lockScreen').classList.add('hidden-lock');
+            document.getElementById('unlockPass').value = '';
+            updateCodes(); 
+        } else {
+            showNotification("Mật khẩu không chính xác!", "error");
+        }
+    });
+    document.getElementById('unlockPass')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('btnUnlock').click();
+    });
+
+    // 8. Nút Đổi mật khẩu (trong Profile)
+    document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
+        if (!checkLogin()) return;
+        const oldPass = document.getElementById('oldPassword').value.trim();
+        const newPass = document.getElementById('newPassword').value.trim();
+        if (!oldPass) return showNotification("Vui lòng nhập mật khẩu hiện tại!", "error");
+        if (!newPass || newPass.length < 6) return showNotification("Mật khẩu mới phải từ 6 ký tự!", "error");
+        try {
+            const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
+            if (signInError) return showNotification("Mật khẩu hiện tại không chính xác!", "error");
+            const { error: updateError } = await db.auth.updateUser({ password: newPass });
+            if (updateError) throw updateError;
+            showNotification("Đổi mật khẩu thành công!", "success");
+            document.getElementById('oldPassword').value = '';
+            document.getElementById('newPassword').value = '';
+        } catch (err) { showNotification("Lỗi đổi mật khẩu!", "error"); }
+    });
+}
