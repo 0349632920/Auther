@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Đăng nhập - HungAuth</title>
+    <title>Đăng nhập - Authenticator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,22 +16,18 @@
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex items-center justify-center transition-colors duration-300">
     <div id="toast" class="custom-toast"></div>
-
     <div class="bg-white dark:bg-darkcard p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-800">
         <div class="text-center mb-8">
             <div class="w-16 h-16 bg-roblox text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-roblox/30"><i class="fas fa-user-lock"></i></div>
             <h1 class="text-2xl font-bold">Đăng nhập</h1>
             <p class="text-gray-500 text-sm mt-1">Đồng bộ mã 2FA của bạn</p>
         </div>
-        
         <input type="text" id="username" placeholder="Nhập tên của bạn..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
         <input type="password" id="password" placeholder="Nhập mật khẩu..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
-        
         <button id="btnLogin" type="button" class="w-full py-3 rounded-xl bg-roblox text-white font-semibold hover:bg-robloxDark shadow-lg shadow-roblox/30 transition-all duration-200 mb-4 flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
             <span id="btnText">Đăng nhập</span>
             <i id="btnSpinner" class="fas fa-spinner loading-spinner hidden"></i>
         </button>
-        
         <div class="text-center text-sm text-gray-500">
             Chưa có tài khoản? <a href="/register" class="text-roblox font-semibold hover:underline">Đăng ký ngay</a>
         </div>
@@ -39,35 +35,27 @@
             <a href="/" class="text-gray-400 hover:text-gray-600 text-sm"><i class="fas fa-arrow-left mr-1"></i> Về trang chủ</a>
         </div>
     </div>
-
     <script>
         const db = window.supabase.createClient('https://skwsuorigvxwwugpldvn.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3N1b3JpZ3Z4d3d1Z3BsZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDY1NzAsImV4cCI6MjEwODM4MjU3MH0.-5MxD9VIFjANch9J0NMTFT-z-tM7eDDxdA1e4p8NFHc');
-        
         const btnLogin = document.getElementById('btnLogin');
         const btnText = document.getElementById('btnText');
         const btnSpinner = document.getElementById('btnSpinner');
         const toastEl = document.getElementById('toast');
-
         function showNotification(message, type = 'error') {
             toastEl.innerHTML = type === 'error' ? `<i class="fas fa-exclamation-circle"></i> ${message}` : `<i class="fas fa-check-circle"></i> ${message}`;
-            toastEl.className = `custom-toast show ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`;
+            toastEl.className = `custom-toast show`;
             toastEl.style.backgroundColor = type === 'error' ? '#EF4444' : '#10B981';
             setTimeout(() => { toastEl.classList.remove('show'); }, 3000);
         }
-
         btnLogin.addEventListener('click', async (e) => {
             e.preventDefault();
             let username = document.getElementById('username').value.trim().toLowerCase();
             let password = document.getElementById('password').value.trim();
-            
             if (!username || !password) return showNotification("Vui lòng nhập đủ Tên và Mật khẩu!");
-            
             btnLogin.disabled = true;
             btnText.textContent = "Đang đăng nhập...";
             btnSpinner.classList.remove('hidden');
-
             const email = `${username}@myauth.local`;
-            
             try {
                 const { data, error } = await db.auth.signInWithPassword({ email, password });
                 if (error) {
