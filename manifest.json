@@ -1,0 +1,22 @@
+{
+  "name": "Authenticator - Bảo mật 2FA",
+  "short_name": "Authenticator",
+  "description": "Ứng dụng quản lý mã xác thực 2FA bảo mật cao.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F2F4F5",
+  "theme_color": "#00A2FF",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2885/2885303.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/192/2885/2885303.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
