@@ -8,23 +8,14 @@ let currentUser = null;
 let deleteIndex = -1;
 let isCloudLoaded = false;
 
-// ==========================================
-// HÀM HIỂN THỊ THÔNG BÁO (TOAST)
-// ==========================================
 function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
-
     const icon = type === 'error' ? '<i class="fas fa-exclamation-circle text-lg"></i>' : '<i class="fas fa-check-circle text-lg"></i>';
     toast.innerHTML = `${icon} <span>${message}</span>`;
-    
-    if (type === 'error') toast.style.backgroundColor = '#EF4444'; // Đỏ
-    else if (type === 'success') toast.style.backgroundColor = '#10B981'; // Xanh lá
-    else toast.style.backgroundColor = '#00A2FF'; // Xanh Roblox
-
+    toast.style.backgroundColor = type === 'error' ? '#EF4444' : '#10B981';
     toast.classList.remove('opacity-0', 'translate-y-10');
     toast.classList.add('opacity-100', 'translate-y-0');
-
     clearTimeout(window.toastTimeout);
     window.toastTimeout = setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-10');
@@ -32,21 +23,16 @@ function showNotification(message, type = 'error') {
     }, 3000);
 }
 
-// ==========================================
-// HÀM KIỂM TRA ĐĂNG NHẬP
-// ==========================================
 function checkLogin() {
     if (!currentUser) {
-        showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
+        showNotification("Vui lòng đăng nhập!", "error");
         setTimeout(() => { window.location.href = "/login"; }, 1000);
         return false;
     }
     return true;
 }
 
-// ==========================================
-// THUẬT TOÁN TẠO MÃ OTP
-// ==========================================
+// Thuật toán OTP
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
@@ -82,9 +68,6 @@ async function generateOTP(secret) {
     } catch (e) { return "Error"; }
 }
 
-// ==========================================
-// KHỞI TẠO
-// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
@@ -125,9 +108,6 @@ function loadData() {
 
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
-// ==========================================
-// ĐỒNG BỘ & TẢI DỮ LIỆU (ĐÃ FIX LỖI 406)
-// ==========================================
 async function checkUserSession() {
     try {
         const { data: { session }, error: sessionError } = await db.auth.getSession();
@@ -135,8 +115,6 @@ async function checkUserSession() {
         
         if (session) {
             currentUser = session.user;
-            
-            // Cập nhật giao diện Profile
             const displayName = currentUser.email.replace('@myauth.local', '');
             const profileEmailEl = document.getElementById('profileEmail');
             if (profileEmailEl) profileEmailEl.textContent = displayName;
@@ -144,49 +122,32 @@ async function checkUserSession() {
             const iconUser = document.getElementById('iconUser');
             if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
 
-            // FIX LỖI 406: Dùng maybeSingle() để không báo lỗi nếu tài khoản chưa có dữ liệu
             const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).maybeSingle();
             
             if (!error && data) {
-                // Nếu có data trên Mây, ghi đè
                 if (data.accounts && data.accounts.length > 0) {
                     accounts = data.accounts;
-                    saveData(); 
-                    renderAccounts(); 
+                    saveData(); renderAccounts(); 
                 }
                 if (data.settings) { 
                     settings = data.settings; 
-                    saveSettings(); 
-                    applyTheme(settings.theme); 
+                    saveSettings(); applyTheme(settings.theme); 
                 }
-            } else {
-                // Nếu chưa có data trên Mây, giữ nguyên dữ liệu dưới máy
-                console.log("Tài khoản chưa có dữ liệu trên Mây, giữ nguyên dữ liệu cục bộ.");
             }
-            
             isCloudLoaded = true;
         } else {
-            // Nếu chưa đăng nhập, chuyển hướng
             window.location.href = "/login";
         }
-    } catch (err) { 
-        console.warn("Lỗi session:", err.message); 
-    }
+    } catch (err) { console.warn("Lỗi session:", err.message); }
 }
 
 async function autoSync() {
     if (!currentUser || !isCloudLoaded) return;
     try {
-        // Dùng upsert để thêm mới hoặc cập nhật
         await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
-    } catch (err) { 
-        console.warn("Lỗi đồng bộ:", err.message); 
-    }
+    } catch (err) { console.warn("Lỗi đồng bộ:", err.message); }
 }
 
-// ==========================================
-// RENDER GIAO DIỆN
-// ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -205,7 +166,7 @@ function renderAccounts() {
         };
         
         card.innerHTML = `
-            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors z-10" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
+            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-10" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
                 <i class="fas fa-trash-alt text-sm"></i>
             </button>
             <div class="flex items-start justify-between pr-8">
@@ -264,9 +225,6 @@ function toggleEmptyState() {
     else emptyState.classList.add('hidden');
 }
 
-// ==========================================
-// SỰ KIỆN NGƯỜI DÙNG & PROFILE
-// ==========================================
 const btnUser = document.getElementById('btnUser');
 if (btnUser) {
     btnUser.addEventListener('click', () => {
@@ -297,7 +255,6 @@ const btnChangePassword = document.getElementById('btnChangePassword');
 if (btnChangePassword) {
     btnChangePassword.addEventListener('click', async () => {
         if (!checkLogin()) return;
-
         const oldPass = document.getElementById('oldPassword').value.trim();
         const newPass = document.getElementById('newPassword').value.trim();
         const userEmail = currentUser.email;
@@ -319,9 +276,6 @@ if (btnChangePassword) {
     });
 }
 
-// ==========================================
-// XỬ LÝ ĐĂNG XUẤT
-// ==========================================
 const btnLogout = document.getElementById('btnLogout');
 if (btnLogout) {
     btnLogout.addEventListener('click', () => {
@@ -367,9 +321,6 @@ if (btnConfirmLogout) {
     });
 }
 
-// ==========================================
-// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT KHÁC
-// ==========================================
 window.openDeleteModal = function(index) {
     if (!checkLogin()) return;
     deleteIndex = index;
@@ -496,9 +447,6 @@ if (btnSaveSettings) {
     });
 }
 
-// ==========================================
-// IMPORT FILE JSON
-// ==========================================
 const btnImport = document.getElementById('btnImport');
 if (btnImport) {
     btnImport.addEventListener('click', () => {
@@ -555,9 +503,6 @@ if (btnImport) {
     });
 }
 
-// ==========================================
-// MÀN HÌNH KHÓA
-// ==========================================
 const btnUnlock = document.getElementById('btnUnlock');
 if (btnUnlock) {
     btnUnlock.addEventListener('click', () => {
