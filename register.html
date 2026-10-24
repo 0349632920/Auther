@@ -15,11 +15,11 @@
         <div class="text-center mb-8">
             <div class="w-16 h-16 bg-proton text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-proton/30"><i class="fas fa-user-plus"></i></div>
             <h1 class="text-2xl font-bold">Tạo tài khoản</h1>
-            <p class="text-gray-500 text-sm mt-1">Bảo vệ mã 2FA của bạn</p>
+            <p class="text-gray-500 text-sm mt-1">Chỉ cần Tên và Mật khẩu</p>
         </div>
         
-        <input type="email" id="email" placeholder="Email..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
-        <input type="password" id="password" placeholder="Mật khẩu..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+        <input type="text" id="username" placeholder="Nhập tên (VD: hung)..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+        <input type="password" id="password" placeholder="Nhập mật khẩu..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
         
         <button id="btnRegister" type="button" class="w-full py-3 rounded-xl bg-proton text-white font-semibold hover:bg-[#5B3DD6] shadow-lg shadow-proton/30 btn-anim mb-4">Tạo tài khoản</button>
         
@@ -32,21 +32,29 @@
     </div>
 
     <script>
-        const db = window.supabase.createClient('https://skwsuorigvxwwugpldvn.supabase.co', 'DÁN_ANON_KEY_CỦA_BẠN_VÀO_ĐÂY');
+        const db = window.supabase.createClient('https://skwsuorigvxwwugpldvn.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3N1b3JpZ3Z4d3d1Z3BsZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDY1NzAsImV4cCI6MjEwODM4MjU3MH0.-5MxD9VIFjANch9J0NMTFT-z-tM7eDDxdA1e4p8NFHc');
         
         document.getElementById('btnRegister').addEventListener('click', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+            let username = document.getElementById('username').value.trim().toLowerCase();
+            let password = document.getElementById('password').value.trim();
             
-            if (!email || !password) return alert("Vui lòng nhập đủ thông tin!");
+            if (!username || !password) return alert("Vui lòng nhập đủ Tên và Mật khẩu!");
+            if (password.length < 6) return alert("Mật khẩu phải từ 6 ký tự trở lên!");
             
-            const { data, error } = await db.auth.signUp({ email, password });
-            if (error) {
-                alert("Lỗi đăng ký: " + error.message);
-            } else {
-                alert("Đăng ký thành công! Hãy đăng nhập.");
-                window.location.href = "/login";
+            // Tự động tạo email ảo từ tên
+            const email = `${username}@myauth.local`;
+            
+            try {
+                const { data, error } = await db.auth.signUp({ email, password });
+                if (error) {
+                    alert("Lỗi đăng ký: " + error.message);
+                } else {
+                    alert(`Đăng ký thành công! Tên đăng nhập của bạn là: ${username}`);
+                    window.location.href = "/login";
+                }
+            } catch (err) {
+                alert("Lỗi kết nối: " + err.message);
             }
         });
     </script>
