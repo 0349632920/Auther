@@ -6,6 +6,7 @@ let accounts = [];
 let settings = { theme: 'light', password: '' };
 let currentUser = null;
 let deleteIndex = -1;
+let isCloudLoaded = false;
 
 // ==========================================
 // HÀM HIỂN THỊ THÔNG BÁO (TOAST)
@@ -14,20 +15,16 @@ function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
 
-    // Gắn icon tương ứng
     const icon = type === 'error' ? '<i class="fas fa-exclamation-circle text-lg"></i>' : '<i class="fas fa-check-circle text-lg"></i>';
     toast.innerHTML = `${icon} <span>${message}</span>`;
     
-    // Đổi màu nền
     if (type === 'error') toast.style.backgroundColor = '#EF4444'; // Đỏ
     else if (type === 'success') toast.style.backgroundColor = '#10B981'; // Xanh lá
     else toast.style.backgroundColor = '#00A2FF'; // Xanh Roblox
 
-    // Hiệu ứng trượt lên
     toast.classList.remove('opacity-0', 'translate-y-10');
     toast.classList.add('opacity-100', 'translate-y-0');
 
-    // Tự động ẩn
     clearTimeout(window.toastTimeout);
     window.toastTimeout = setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-10');
@@ -129,7 +126,7 @@ function loadData() {
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
 // ==========================================
-// ĐỒNG BỘ & TẢI DỮ LIỆU
+// ĐỒNG BỘ & TẢI DỮ LIỆU (ĐÃ FIX LỖI 406)
 // ==========================================
 async function checkUserSession() {
     try {
@@ -138,6 +135,8 @@ async function checkUserSession() {
         
         if (session) {
             currentUser = session.user;
+            
+            // Cập nhật giao diện Profile
             const displayName = currentUser.email.replace('@myauth.local', '');
             const profileEmailEl = document.getElementById('profileEmail');
             if (profileEmailEl) profileEmailEl.textContent = displayName;
@@ -145,22 +144,44 @@ async function checkUserSession() {
             const iconUser = document.getElementById('iconUser');
             if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
 
-            const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
+            // FIX LỖI 406: Dùng maybeSingle() để không báo lỗi nếu tài khoản chưa có dữ liệu
+            const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).maybeSingle();
+            
             if (!error && data) {
-                if (data.accounts) { accounts = data.accounts; saveData(); renderAccounts(); }
-                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
+                // Nếu có data trên Mây, ghi đè
+                if (data.accounts && data.accounts.length > 0) {
+                    accounts = data.accounts;
+                    saveData(); 
+                    renderAccounts(); 
+                }
+                if (data.settings) { 
+                    settings = data.settings; 
+                    saveSettings(); 
+                    applyTheme(settings.theme); 
+                }
             } else {
-                accounts = []; renderAccounts();
+                // Nếu chưa có data trên Mây, giữ nguyên dữ liệu dưới máy
+                console.log("Tài khoản chưa có dữ liệu trên Mây, giữ nguyên dữ liệu cục bộ.");
             }
-        } else { window.location.href = "/login"; }
-    } catch (err) { console.warn("Lỗi session:", err.message); }
+            
+            isCloudLoaded = true;
+        } else {
+            // Nếu chưa đăng nhập, chuyển hướng
+            window.location.href = "/login";
+        }
+    } catch (err) { 
+        console.warn("Lỗi session:", err.message); 
+    }
 }
 
 async function autoSync() {
-    if (!currentUser) return;
+    if (!currentUser || !isCloudLoaded) return;
     try {
+        // Dùng upsert để thêm mới hoặc cập nhật
         await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
-    } catch (err) { console.warn("Lỗi đồng bộ:", err.message); }
+    } catch (err) { 
+        console.warn("Lỗi đồng bộ:", err.message); 
+    }
 }
 
 // ==========================================
@@ -334,6 +355,7 @@ if (btnConfirmLogout) {
         sessionStorage.clear();
         accounts = [];
         settings = { theme: 'light', password: '' }; 
+        isCloudLoaded = false;
         
         document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
         setTimeout(() => {
@@ -346,7 +368,7 @@ if (btnConfirmLogout) {
 }
 
 // ==========================================
-// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT
+// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT KHÁC
 // ==========================================
 window.openDeleteModal = function(index) {
     if (!checkLogin()) return;
