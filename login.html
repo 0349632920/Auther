@@ -7,17 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        tailwind.config = { 
-            darkMode: 'class', 
-            theme: { 
-                extend: { 
-                    fontFamily: { sans: ['Hind', 'sans-serif'] }, 
-                    colors: { roblox: '#00A2FF', robloxDark: '#0084D1', bg: '#F2F4F5', darkbg: '#232527', darkcard: '#393B3D' } 
-                } 
-            } 
-        }
-    </script>
+    <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Hind', 'sans-serif'] }, colors: { roblox: '#00A2FF', robloxDark: '#0084D1', bg: '#F2F4F5', darkbg: '#232527', darkcard: '#393B3D' } } } }</script>
     <link rel="stylesheet" href="style.css">
     <style>
         @keyframes spin { 100% { transform: rotate(360deg); } }
@@ -25,15 +15,11 @@
     </style>
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex items-center justify-center transition-colors duration-300">
-    
-    <!-- Khối Toast thông báo -->
     <div id="toast" class="custom-toast"></div>
 
     <div class="bg-white dark:bg-darkcard p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-800">
         <div class="text-center mb-8">
-            <div class="w-16 h-16 bg-roblox text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-roblox/30">
-                <i class="fas fa-user-lock"></i>
-            </div>
+            <div class="w-16 h-16 bg-roblox text-white rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-lg shadow-roblox/30"><i class="fas fa-user-lock"></i></div>
             <h1 class="text-2xl font-bold">Đăng nhập</h1>
             <p class="text-gray-500 text-sm mt-1">Đồng bộ mã 2FA của bạn</p>
         </div>
@@ -62,18 +48,11 @@
         const btnSpinner = document.getElementById('btnSpinner');
         const toastEl = document.getElementById('toast');
 
-        // Hàm hiển thị thông báo trên Web
         function showNotification(message, type = 'error') {
-            toastEl.textContent = message;
-            toastEl.className = `custom-toast show ${type === 'error' ? 'toast-error' : 'toast-success'}`;
-            
-            // Thêm icon
-            if (type === 'error') toastEl.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
-            else toastEl.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
-
-            setTimeout(() => {
-                toastEl.classList.remove('show');
-            }, 3000); // Tự ẩn sau 3 giây
+            toastEl.innerHTML = type === 'error' ? `<i class="fas fa-exclamation-circle"></i> ${message}` : `<i class="fas fa-check-circle"></i> ${message}`;
+            toastEl.className = `custom-toast show ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`;
+            toastEl.style.backgroundColor = type === 'error' ? '#EF4444' : '#10B981';
+            setTimeout(() => { toastEl.classList.remove('show'); }, 3000);
         }
 
         btnLogin.addEventListener('click', async (e) => {
@@ -81,9 +60,7 @@
             let username = document.getElementById('username').value.trim().toLowerCase();
             let password = document.getElementById('password').value.trim();
             
-            if (!username || !password) {
-                return showNotification("Vui lòng nhập đủ Tên và Mật khẩu!", "error");
-            }
+            if (!username || !password) return showNotification("Vui lòng nhập đủ Tên và Mật khẩu!");
             
             btnLogin.disabled = true;
             btnText.textContent = "Đang đăng nhập...";
@@ -93,18 +70,16 @@
             
             try {
                 const { data, error } = await db.auth.signInWithPassword({ email, password });
-                
                 if (error) {
-                    showNotification("Sai tên hoặc mật khẩu!", "error");
+                    showNotification("Sai tên hoặc mật khẩu!");
                     btnLogin.disabled = false;
                     btnText.textContent = "Đăng nhập";
                     btnSpinner.classList.add('hidden');
                 } else {
-                    btnText.textContent = "Thành công!";
                     window.location.href = "/";
                 }
             } catch (err) {
-                showNotification("Lỗi kết nối: " + err.message, "error");
+                showNotification("Lỗi kết nối: " + err.message);
                 btnLogin.disabled = false;
                 btnText.textContent = "Đăng nhập";
                 btnSpinner.classList.add('hidden');
