@@ -34,7 +34,6 @@
 
     <div id="toast" class="custom-toast"></div>
 
-    <!-- MÀN HÌNH KHÓA -->
     <div id="lockScreen" class="hidden-lock">
         <div class="w-20 h-20 bg-roblox rounded-2xl flex items-center justify-center mb-6 shadow-soft"><i class="fas fa-lock text-4xl text-white"></i></div>
         <h2 class="text-2xl font-bold mb-2">Ứng dụng đã khóa</h2>
@@ -44,7 +43,6 @@
         </div>
     </div>
 
-    <!-- THANH CÔNG CỤ -->
     <div class="flex items-center justify-between px-6 md:px-8 py-5 max-w-5xl w-full mx-auto">
         <div class="flex items-center gap-3 w-full">
             <button id="btnAdd" class="roblox-btn flex items-center gap-2 text-white px-5 py-2.5 shadow-soft"><i class="fas fa-plus"></i> Add</button>
@@ -60,9 +58,8 @@
         </div>
     </div>
 
-    <!-- DANH SÁCH TÀI KHOẢN -->
     <div id="accountList" class="flex-1 overflow-y-auto px-6 md:px-8 pb-10">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-max"></div>
+        <div id="sortableGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-max"></div>
         <div id="emptyState" class="flex flex-col items-center justify-center h-full mt-20 hidden opacity-0 transition-opacity duration-500">
             <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><i class="fas fa-shield-alt text-4xl text-gray-400"></i></div>
             <h2 class="text-2xl font-bold text-gray-700 dark:text-gray-300">Chưa có tài khoản nào</h2>
@@ -87,6 +84,19 @@
         </div>
     </div>
 
+    <!-- MODAL XÁC NHẬN XÓA -->
+    <div id="modalDelete" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modalDeleteContent">
+            <div class="w-14 h-14 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl"><i class="fas fa-trash-alt"></i></div>
+            <h2 class="text-xl font-bold mb-2">Xóa tài khoản?</h2>
+            <p class="text-gray-500 mb-6 text-sm">Bạn có chắc muốn xóa <span id="deleteName" class="font-bold text-gray-800 dark:text-gray-200"></span> không?</p>
+            <div class="flex justify-center gap-3">
+                <button id="btnCancelDelete" class="px-5 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition">Hủy</button>
+                <button id="btnConfirmDelete" class="px-5 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition">Xóa</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL CÀI ĐẶT -->
     <div id="modalSettings" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalSettingsContent">
@@ -95,21 +105,14 @@
                 <button id="btnCloseSettings" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-lg"></i></button>
             </div>
             <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                    <h3 class="font-bold">Giao diện</h3>
-                    <p class="text-xs text-gray-500">Chọn chế độ Sáng hoặc Tối</p>
-                </div>
-                <button id="btnToggleTheme" class="w-12 h-7 bg-gray-300 dark:bg-roblox rounded-full relative transition-colors duration-300">
-                    <div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="themeThumb"></div>
-                </button>
+                <div><h3 class="font-bold">Giao diện</h3><p class="text-xs text-gray-500">Chọn chế độ Sáng hoặc Tối</p></div>
+                <button id="btnToggleTheme" class="w-12 h-7 bg-gray-300 dark:bg-roblox rounded-full relative transition-colors duration-300"><div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="themeThumb"></div></button>
             </div>
             <div class="mb-5">
                 <h3 class="font-bold mb-1">Mật khẩu bảo vệ App</h3>
                 <input type="password" id="inputPassword" placeholder="Nhập mật khẩu..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
             </div>
-            <div class="flex justify-end mt-4">
-                <button id="btnSaveSettings" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md">Lưu thay đổi</button>
-            </div>
+            <div class="flex justify-end mt-4"><button id="btnSaveSettings" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md">Lưu thay đổi</button></div>
         </div>
     </div>
 
@@ -122,10 +125,7 @@
             </div>
             <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                 <div class="w-14 h-14 bg-roblox text-white rounded-full flex items-center justify-center text-2xl shadow-md"><i class="fas fa-user"></i></div>
-                <div>
-                    <p class="text-xs text-gray-500 font-semibold">Đã đăng nhập</p>
-                    <p class="font-bold text-lg" id="profileEmail">...</p>
-                </div>
+                <div><p class="text-xs text-gray-500 font-semibold">Đã đăng nhập</p><p class="font-bold text-lg" id="profileEmail">...</p></div>
             </div>
             <div class="mb-6">
                 <h3 class="font-bold mb-2">Đổi mật khẩu tài khoản</h3>
@@ -135,6 +135,19 @@
             </div>
             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                 <button id="btnLogout" class="w-full py-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 font-bold hover:bg-red-100 transition flex items-center justify-center gap-2"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL XÁC NHẬN ĐĂNG XUẤT -->
+    <div id="modalLogout" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modalLogoutContent">
+            <div class="w-14 h-14 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl"><i class="fas fa-sign-out-alt"></i></div>
+            <h2 class="text-xl font-bold mb-2">Đăng xuất?</h2>
+            <p class="text-gray-500 mb-6 text-sm">Bạn có chắc chắn muốn đăng xuất không?</p>
+            <div class="flex justify-center gap-3">
+                <button id="btnCancelLogout" class="px-5 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition">Hủy</button>
+                <button id="btnConfirmLogout" class="px-5 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition">Đăng xuất</button>
             </div>
         </div>
     </div>
