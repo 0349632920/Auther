@@ -3,8 +3,9 @@ const SUPABASE_KEY = 'postgresql://postgres.skwsuorigvxwwugpldvn:[LuongHung0707@
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let accounts = [];
-let settings = { theme: 'light', password: '', biometricId: null };
+let settings = { theme: 'light', password: '' };
 let currentUser = null;
+let deleteIndex = -1; // Lưu vị trí tài khoản đang muốn xóa
 
 // Thuật toán OTP
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -81,13 +82,12 @@ function loadData() {
 
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
-// Đồng bộ ngầm với Supabase (Lưu tự động)
+// Đồng bộ ngầm
 async function checkUserSession() {
     const { data: { session } } = await db.auth.getSession();
     if (session) {
         currentUser = session.user;
-        // Tự động tải dữ liệu từ mây về khi đăng nhập
-        const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
+        const { data } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
         if (data && data.accounts) {
             accounts = data.accounts;
             saveData(); renderAccounts();
@@ -101,7 +101,7 @@ async function autoSync() {
     await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
 }
 
-// Render
+// Render danh sách
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -109,16 +109,29 @@ function renderAccounts() {
     
     accounts.forEach((account, index) => {
         const card = document.createElement('div');
-        card.className = `card-fade-in bg-white dark:bg-darkcard rounded-[20px] p-5 shadow-soft hover:shadow-hover border border-gray-100 dark:border-gray-800 cursor-pointer group flex flex-col justify-between min-h-[145px] card-anim`;
+        // Thêm relative để định vị nút xóa
+        card.className = `relative card-fade-in bg-white dark:bg-darkcard rounded-[20px] p-5 shadow-soft hover:shadow-hover border border-gray-100 dark:border-gray-800 cursor-pointer group flex flex-col justify-between min-h-[145px] card-anim`;
         card.style.animationDelay = `${index * 0.05}s`;
-        card.onclick = () => copyCode(account.secret);
+        
+        // Bấm vào thẻ để copy
+        card.onclick = (e) => {
+            if (e.target.closest('.btn-delete')) return; // Nếu bấm vào nút xóa thì không copy
+            card.style.transform = 'scale(0.96)';
+            setTimeout(() => { card.style.transform = ''; }, 150);
+            copyCode(account.secret);
+        };
         
         card.innerHTML = `
-            <div class="flex items-start justify-between">
+            <!-- Nút Xóa (Thùng rác) -->
+            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors z-10" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
+                <i class="fas fa-trash-alt text-sm"></i>
+            </button>
+
+            <div class="flex items-start justify-between pr-8">
                 <div class="flex items-center gap-3.5">
                     <div class="w-11 h-11 rounded-2xl bg-gray-50 dark:bg-gray-800 text-proton flex items-center justify-center font-bold text-xl border border-gray-100 dark:border-gray-700 group-hover:bg-proton group-hover:text-white transition-colors duration-300">${account.name.charAt(0).toUpperCase()}</div>
                     <div>
-                        <h3 class="font-bold text-gray-800 dark:text-gray-100 text-[17px] leading-tight truncate max-w-[160px]">${account.name}</h3>
+                        <h3 class="font-bold text-gray-800 dark:text-gray-100 text-[17px] leading-tight truncate max-w-[130px]">${account.name}</h3>
                         <p class="text-xs text-gray-400 mt-1 font-medium">One-time password</p>
                     </div>
                 </div>
@@ -177,7 +190,46 @@ function toggleEmptyState() {
     else emptyState.classList.add('hidden');
 }
 
-// Xử lý Thêm tài khoản
+// ==========================================
+// XỬ LÝ XÓA TÀI KHOẢN
+// ==========================================
+window.openDeleteModal = function(index) {
+    deleteIndex = index;
+    document.getElementById('deleteName').textContent = accounts[index].name;
+    document.getElementById('modalDelete').classList.remove('hidden');
+    document.getElementById('modalDelete').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
+}
+
+document.getElementById('btnCancelDelete').addEventListener('click', () => {
+    document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalDelete').classList.add('hidden');
+        document.getElementById('modalDelete').classList.remove('flex');
+    }, 200);
+});
+
+document.getElementById('btnConfirmDelete').addEventListener('click', () => {
+    if (deleteIndex > -1) {
+        accounts.splice(deleteIndex, 1); // Xóa khỏi mảng
+        saveData(); // Lưu vào local
+        renderAccounts(); // Vẽ lại UI
+        autoSync(); // Đồng bộ lên mây
+        
+        // Đóng modal
+        document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalDelete').classList.add('hidden');
+            document.getElementById('modalDelete').classList.remove('flex');
+        }, 200);
+        
+        deleteIndex = -1;
+    }
+});
+
+// ==========================================
+// CÁC SỰ KIỆN KHÁC (Add, Settings, Import)
+// ==========================================
 document.getElementById('btnAdd').addEventListener('click', () => {
     document.getElementById('modalAdd').classList.remove('hidden');
     document.getElementById('modalAdd').classList.add('flex');
@@ -200,8 +252,87 @@ document.getElementById('btnSaveAdd').addEventListener('click', async () => {
         if (match) secret = decodeURIComponent(match[1]);
     }
     accounts.push({ name, secret });
-    saveData(); renderAccounts(); autoSync(); // Đồng bộ ngầm
+    saveData(); renderAccounts(); autoSync();
     document.getElementById('inputName').value = '';
     document.getElementById('inputSecret').value = '';
     document.getElementById('btnCancelAdd').click();
+});
+
+document.getElementById('btnSettings').addEventListener('click', () => {
+    document.getElementById('modalSettings').classList.remove('hidden');
+    document.getElementById('modalSettings').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
+});
+document.getElementById('btnCloseSettings').addEventListener('click', () => {
+    document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalSettings').classList.add('hidden');
+        document.getElementById('modalSettings').classList.remove('flex');
+    }, 200);
+});
+
+document.getElementById('btnToggleTheme').addEventListener('click', () => {
+    settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+    applyTheme(settings.theme);
+});
+document.getElementById('btnSaveSettings').addEventListener('click', () => {
+    settings.password = document.getElementById('inputPassword').value.trim();
+    saveSettings(); autoSync();
+    document.getElementById('btnCloseSettings').click();
+    alert("Đã lưu cài đặt!");
+});
+
+// Import JSON
+document.getElementById('btnImport').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = event => {
+            try {
+                const data = JSON.parse(event.target.result);
+                if (data.salt && data.content && !data.entries) { alert("LỖI: File bị MÃ HÓA!"); return; }
+                let extractedAccounts = [];
+                function scanObject(obj) {
+                    if (!obj) return;
+                    if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
+                    if (typeof obj === 'object') {
+                        let name = obj.name || obj.title || obj.issuer || "Tài khoản";
+                        let secret = obj.secret || obj.key || null;
+                        let uri = obj.uri || obj.otpauth || null;
+                        if (!secret && uri && typeof uri === 'string') {
+                            const match = uri.match(/[?&]secret=([^&]+)/);
+                            if (match) secret = decodeURIComponent(match[1]);
+                        }
+                        if (secret && typeof secret === 'string') {
+                            if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name: name, secret: secret });
+                        }
+                        for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
+                    }
+                }
+                scanObject(data);
+                let count = 0;
+                if (extractedAccounts.length > 0) {
+                    extractedAccounts.forEach(newAcc => {
+                        if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
+                            accounts.push(newAcc); count++;
+                        }
+                    });
+                    if (count > 0) { saveData(); renderAccounts(); autoSync(); alert(`Import thành công ${count} tài khoản!`); }
+                    else { alert("Tất cả tài khoản đã có sẵn."); }
+                } else { alert("Không tìm thấy mã 2FA."); }
+            } catch (err) { alert("Lỗi đọc file JSON."); }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+});
+
+// Đăng xuất
+document.getElementById('btnLogout')?.addEventListener('click', async () => {
+    await db.auth.signOut();
+    currentUser = null;
+    window.location.href = "/login";
 });
