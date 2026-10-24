@@ -8,7 +8,19 @@ let currentUser = null;
 let deleteIndex = -1;
 
 // ==========================================
-// THUẬT TOÁN TẠO MÃ OTP (WEB CRYPTO API)
+// HÀM KIỂM TRA ĐĂNG NHẬP (GUARD)
+// ==========================================
+function checkLogin() {
+    if (!currentUser) {
+        alert("Vui lòng đăng nhập để sử dụng tính năng này!");
+        window.location.href = "/login";
+        return false;
+    }
+    return true;
+}
+
+// ==========================================
+// THUẬT TOÁN TẠO MÃ OTP
 // ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
@@ -46,7 +58,7 @@ async function generateOTP(secret) {
 }
 
 // ==========================================
-// KHỞI TẠO & TẢI DỮ LIỆU
+// KHỞI TẠO
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
@@ -64,7 +76,6 @@ function loadSettings() {
         try {
             settings = JSON.parse(saved);
             applyTheme(settings.theme);
-            // Nếu có mật khẩu bảo vệ, hiện màn hình khóa
             if (settings.password && document.getElementById('lockScreen')) {
                 document.getElementById('lockScreen').classList.remove('hidden-lock');
             }
@@ -90,7 +101,7 @@ function loadData() {
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
 // ==========================================
-// ĐỒNG BỘ SUPABASE & TRẠNG THÁI ĐĂNG NHẬP
+// ĐỒNG BỘ & SESSION
 // ==========================================
 async function checkUserSession() {
     try {
@@ -99,47 +110,32 @@ async function checkUserSession() {
         
         if (session) {
             currentUser = session.user;
-            
-            // Hiển thị tên (Bỏ đuôi @myauth.local)
             const displayName = currentUser.email.replace('@myauth.local', '');
             const profileEmailEl = document.getElementById('profileEmail');
             if (profileEmailEl) profileEmailEl.textContent = displayName;
             
             const iconUser = document.getElementById('iconUser');
-            if (iconUser) iconUser.className = "fas fa-user-circle text-proton text-xl";
+            if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
 
-            // Tự động tải dữ liệu từ Mây về khi đăng nhập
             const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
             if (!error && data && data.accounts) {
                 accounts = data.accounts;
                 saveData(); renderAccounts();
-                if (data.settings) { 
-                    settings = data.settings; 
-                    saveSettings(); 
-                    applyTheme(settings.theme); 
-                }
+                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
             }
         }
-    } catch (err) {
-        console.warn("Chưa đăng nhập hoặc lỗi session:", err.message);
-    }
+    } catch (err) { console.warn("Lỗi session:", err.message); }
 }
 
 async function autoSync() {
     if (!currentUser) return;
     try {
-        await db.from('user_data').upsert({ 
-            user_id: currentUser.id, 
-            accounts: accounts, 
-            settings: settings 
-        });
-    } catch (err) {
-        console.warn("Lỗi đồng bộ ngầm:", err.message);
-    }
+        await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
+    } catch (err) { console.warn("Lỗi đồng bộ:", err.message); }
 }
 
 // ==========================================
-// HIỂN THỊ GIAO DIỆN
+// RENDER GIAO DIỆN
 // ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
@@ -148,7 +144,7 @@ function renderAccounts() {
     
     accounts.forEach((account, index) => {
         const card = document.createElement('div');
-        card.className = `relative card-fade-in bg-white dark:bg-darkcard rounded-[20px] p-5 shadow-soft hover:shadow-hover border border-gray-100 dark:border-gray-800 cursor-pointer group flex flex-col justify-between min-h-[145px] card-anim`;
+        card.className = `relative card-fade-in roblox-card p-5 cursor-pointer group flex flex-col justify-between min-h-[145px]`;
         card.style.animationDelay = `${index * 0.05}s`;
         
         card.onclick = (e) => {
@@ -164,14 +160,14 @@ function renderAccounts() {
             </button>
             <div class="flex items-start justify-between pr-8">
                 <div class="flex items-center gap-3.5">
-                    <div class="w-11 h-11 rounded-2xl bg-gray-50 dark:bg-gray-800 text-proton flex items-center justify-center font-bold text-xl border border-gray-100 dark:border-gray-700 group-hover:bg-proton group-hover:text-white transition-colors duration-300">${account.name.charAt(0).toUpperCase()}</div>
+                    <div class="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 text-roblox flex items-center justify-center font-bold text-xl border border-gray-200 dark:border-gray-700 group-hover:bg-roblox group-hover:text-white transition-colors duration-300">${account.name.charAt(0).toUpperCase()}</div>
                     <div>
                         <h3 class="font-bold text-gray-800 dark:text-gray-100 text-[17px] leading-tight truncate max-w-[130px]">${account.name}</h3>
-                        <p class="text-xs text-gray-400 mt-1 font-medium">One-time password</p>
+                        <p class="text-xs text-gray-400 mt-1 font-semibold">2FA Code</p>
                     </div>
                 </div>
                 <div class="relative w-9 h-9 flex items-center justify-center shrink-0">
-                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36"><path class="text-gray-100 dark:text-gray-700" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="text-proton arc" stroke-dasharray="100, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg>
+                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36"><path class="text-gray-200 dark:text-gray-600" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="text-roblox arc" stroke-dasharray="100, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg>
                 </div>
             </div>
             <div class="mt-5 flex items-end justify-between">
@@ -191,8 +187,8 @@ async function updateCodes() {
     
     document.querySelectorAll('.arc').forEach(arc => {
         arc.style.strokeDasharray = `${fraction * 100}, 100`;
-        if (remaining <= 5) { arc.classList.remove('text-proton'); arc.classList.add('text-red-500'); }
-        else { arc.classList.remove('text-red-500'); arc.classList.add('text-proton'); }
+        if (remaining <= 5) { arc.classList.remove('text-roblox'); arc.classList.add('text-red-500'); }
+        else { arc.classList.remove('text-red-500'); arc.classList.add('text-roblox'); }
     });
     document.querySelectorAll('.code-display').forEach(async el => {
         const secret = el.getAttribute('data-secret');
@@ -215,9 +211,13 @@ async function copyCode(secret) {
 
 function showToast() {
     const toast = document.getElementById('toast');
-    toast.classList.add('show');
+    toast.classList.remove('opacity-0', 'translate-y-10');
+    toast.classList.add('opacity-100', 'translate-y-0');
     clearTimeout(window.toastTimeout);
-    window.toastTimeout = setTimeout(() => { toast.classList.remove('show'); }, 2000);
+    window.toastTimeout = setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-10');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+    }, 2000);
 }
 
 function toggleEmptyState() {
@@ -226,7 +226,7 @@ function toggleEmptyState() {
 }
 
 // ==========================================
-// XỬ LÝ SỰ KIỆN NGƯỜI DÙNG & PROFILE
+// SỰ KIỆN NGƯỜI DÙNG & PROFILE
 // ==========================================
 const btnUser = document.getElementById('btnUser');
 if (btnUser) {
@@ -238,9 +238,7 @@ if (btnUser) {
                 modal.classList.add('flex');
                 setTimeout(() => { document.getElementById('modalProfileContent').style.transform = 'scale(1)'; }, 50);
             }
-        } else {
-            window.location.href = "/login";
-        }
+        } else { window.location.href = "/login"; }
     });
 }
 
@@ -259,33 +257,67 @@ if (btnCloseProfile) {
 const btnChangePassword = document.getElementById('btnChangePassword');
 if (btnChangePassword) {
     btnChangePassword.addEventListener('click', async () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+        
         const newPass = document.getElementById('newPassword').value.trim();
         if (!newPass || newPass.length < 6) return alert("Mật khẩu phải từ 6 ký tự!");
-        
         try {
             const { error } = await db.auth.updateUser({ password: newPass });
             if (error) throw error;
             alert("Đổi mật khẩu thành công!");
             document.getElementById('newPassword').value = '';
-        } catch (err) {
-            alert("Lỗi đổi mật khẩu: " + err.message);
-        }
+        } catch (err) { alert("Lỗi đổi mật khẩu: " + err.message); }
     });
 }
 
+// ==========================================
+// XỬ LÝ ĐĂNG XUẤT (CÓ XÁC NHẬN)
+// ==========================================
 const btnLogout = document.getElementById('btnLogout');
 if (btnLogout) {
-    btnLogout.addEventListener('click', async () => {
+    btnLogout.addEventListener('click', () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+
+        const modalLogout = document.getElementById('modalLogout');
+        modalLogout.classList.remove('hidden');
+        modalLogout.classList.add('flex');
+        setTimeout(() => { document.getElementById('modalLogoutContent').style.transform = 'scale(1)'; }, 50);
+    });
+}
+
+const btnCancelLogout = document.getElementById('btnCancelLogout');
+if (btnCancelLogout) {
+    btnCancelLogout.addEventListener('click', () => {
+        document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            const modalLogout = document.getElementById('modalLogout');
+            modalLogout.classList.add('hidden');
+            modalLogout.classList.remove('flex');
+        }, 200);
+    });
+}
+
+const btnConfirmLogout = document.getElementById('btnConfirmLogout');
+if (btnConfirmLogout) {
+    btnConfirmLogout.addEventListener('click', async () => {
         await db.auth.signOut();
         currentUser = null;
-        window.location.reload();
+        document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            const modalLogout = document.getElementById('modalLogout');
+            modalLogout.classList.add('hidden');
+            modalLogout.classList.remove('flex');
+            window.location.reload();
+        }, 200);
     });
 }
 
 // ==========================================
-// XÓA TÀI KHOẢN
+// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT KHÁC
 // ==========================================
 window.openDeleteModal = function(index) {
+    if (!checkLogin()) return; // Kiểm tra đăng nhập
+
     deleteIndex = index;
     document.getElementById('deleteName').textContent = accounts[index].name;
     document.getElementById('modalDelete').classList.remove('hidden');
@@ -307,6 +339,8 @@ if (btnCancelDelete) {
 const btnConfirmDelete = document.getElementById('btnConfirmDelete');
 if (btnConfirmDelete) {
     btnConfirmDelete.addEventListener('click', () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+
         if (deleteIndex > -1) {
             accounts.splice(deleteIndex, 1); 
             saveData(); renderAccounts(); autoSync(); 
@@ -320,12 +354,11 @@ if (btnConfirmDelete) {
     });
 }
 
-// ==========================================
-// THÊM TÀI KHOẢN
-// ==========================================
 const btnAdd = document.getElementById('btnAdd');
 if (btnAdd) {
     btnAdd.addEventListener('click', () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+
         document.getElementById('modalAdd').classList.remove('hidden');
         document.getElementById('modalAdd').classList.add('flex');
         setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
@@ -353,6 +386,8 @@ if (btnCloseModal) {
 const btnSaveAdd = document.getElementById('btnSaveAdd');
 if (btnSaveAdd) {
     btnSaveAdd.addEventListener('click', async () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+
         const name = document.getElementById('inputName').value.trim();
         let secret = document.getElementById('inputSecret').value.trim();
         if (!name || !secret) return;
@@ -368,12 +403,11 @@ if (btnSaveAdd) {
     });
 }
 
-// ==========================================
-// CÀI ĐẶT
-// ==========================================
 const btnSettings = document.getElementById('btnSettings');
 if (btnSettings) {
     btnSettings.addEventListener('click', () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+
         document.getElementById('modalSettings').classList.remove('hidden');
         document.getElementById('modalSettings').classList.add('flex');
         setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
@@ -402,6 +436,8 @@ if (btnToggleTheme) {
 const btnSaveSettings = document.getElementById('btnSaveSettings');
 if (btnSaveSettings) {
     btnSaveSettings.addEventListener('click', () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+
         settings.password = document.getElementById('inputPassword').value.trim();
         saveSettings(); autoSync();
         document.getElementById('btnCloseSettings').click();
@@ -415,6 +451,8 @@ if (btnSaveSettings) {
 const btnImport = document.getElementById('btnImport');
 if (btnImport) {
     btnImport.addEventListener('click', () => {
+        if (!checkLogin()) return; // Kiểm tra đăng nhập
+
         const input = document.createElement('input');
         input.type = 'file'; input.accept = '.json';
         input.onchange = e => {
@@ -424,7 +462,7 @@ if (btnImport) {
             reader.onload = event => {
                 try {
                     const data = JSON.parse(event.target.result);
-                    if (data.salt && data.content && !data.entries) { alert("LỖI: File bị MÃ HÓA! Hãy xuất dạng Plain text."); return; }
+                    if (data.salt && data.content && !data.entries) { alert("LỖI: File bị MÃ HÓA!"); return; }
                     let extractedAccounts = [];
                     function scanObject(obj) {
                         if (!obj) return;
