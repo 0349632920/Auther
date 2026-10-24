@@ -8,19 +8,47 @@ let currentUser = null;
 let deleteIndex = -1;
 
 // ==========================================
-// HÀM KIỂM TRA ĐĂNG NHẬP (GUARD)
+// HÀM HIỂN THỊ THÔNG BÁO (TOAST)
+// ==========================================
+function showNotification(message, type = 'error') {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+
+    // Gắn icon tương ứng
+    const icon = type === 'error' ? '<i class="fas fa-exclamation-circle text-lg"></i>' : '<i class="fas fa-check-circle text-lg"></i>';
+    toast.innerHTML = `${icon} <span>${message}</span>`;
+    
+    // Đổi màu nền
+    if (type === 'error') toast.style.backgroundColor = '#EF4444'; // Đỏ
+    else if (type === 'success') toast.style.backgroundColor = '#10B981'; // Xanh lá
+    else toast.style.backgroundColor = '#00A2FF'; // Xanh Roblox
+
+    // Hiệu ứng trượt lên
+    toast.classList.remove('opacity-0', 'translate-y-10');
+    toast.classList.add('opacity-100', 'translate-y-0');
+
+    // Tự động ẩn
+    clearTimeout(window.toastTimeout);
+    window.toastTimeout = setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-10');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+    }, 3000);
+}
+
+// ==========================================
+// HÀM KIỂM TRA ĐĂNG NHẬP
 // ==========================================
 function checkLogin() {
     if (!currentUser) {
-        alert("Vui lòng đăng nhập để sử dụng tính năng này!");
-        window.location.href = "/login";
+        showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
+        setTimeout(() => { window.location.href = "/login"; }, 1000);
         return false;
     }
     return true;
 }
 
 // ==========================================
-// THUẬT TOÁN TẠO MÃ OTP (WEB CRYPTO API)
+// THUẬT TOÁN TẠO MÃ OTP
 // ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
@@ -101,7 +129,7 @@ function loadData() {
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
 // ==========================================
-// ĐỒNG BỘ & TẢI DỮ LIỆU TỪ SUPABASE
+// ĐỒNG BỘ & TẢI DỮ LIỆU
 // ==========================================
 async function checkUserSession() {
     try {
@@ -110,8 +138,6 @@ async function checkUserSession() {
         
         if (session) {
             currentUser = session.user;
-            
-            // Cập nhật giao diện Profile
             const displayName = currentUser.email.replace('@myauth.local', '');
             const profileEmailEl = document.getElementById('profileEmail');
             if (profileEmailEl) profileEmailEl.textContent = displayName;
@@ -119,38 +145,22 @@ async function checkUserSession() {
             const iconUser = document.getElementById('iconUser');
             if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
 
-            // TỰ ĐỘNG KÉO DỮ LIỆU TỪ MÂY VỀ
             const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
-            
             if (!error && data) {
-                if (data.accounts) {
-                    accounts = data.accounts;
-                    saveData(); 
-                    renderAccounts(); 
-                }
-                if (data.settings) { 
-                    settings = data.settings; 
-                    saveSettings(); 
-                    applyTheme(settings.theme); 
-                }
+                if (data.accounts) { accounts = data.accounts; saveData(); renderAccounts(); }
+                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
             } else {
-                accounts = [];
-                renderAccounts();
+                accounts = []; renderAccounts();
             }
-        } else {
-            // Nếu chưa đăng nhập, chuyển hướng về trang login
-            window.location.href = "/login";
-        }
-    } catch (err) { 
-        console.warn("Lỗi session:", err.message); 
-    }
+        } else { window.location.href = "/login"; }
+    } catch (err) { console.warn("Lỗi session:", err.message); }
 }
 
 async function autoSync() {
     if (!currentUser) return;
     try {
         await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
-    } catch (err) { console.warn("Lỗi đồng bộ ngầm:", err.message); }
+    } catch (err) { console.warn("Lỗi đồng bộ:", err.message); }
 }
 
 // ==========================================
@@ -223,20 +233,9 @@ async function copyCode(secret) {
         const code = await generateOTP(secret);
         if (code !== "Error") {
             await navigator.clipboard.writeText(code);
-            showToast();
+            showNotification("Đã copy mã!", "success");
         }
     } catch (e) { console.error(e); }
-}
-
-function showToast() {
-    const toast = document.getElementById('toast');
-    toast.classList.remove('opacity-0', 'translate-y-10');
-    toast.classList.add('opacity-100', 'translate-y-0');
-    clearTimeout(window.toastTimeout);
-    window.toastTimeout = setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-10');
-        toast.classList.remove('opacity-100', 'translate-y-0');
-    }, 2000);
 }
 
 function toggleEmptyState() {
@@ -282,27 +281,25 @@ if (btnChangePassword) {
         const newPass = document.getElementById('newPassword').value.trim();
         const userEmail = currentUser.email;
 
-        if (!oldPass) return alert("Vui lòng nhập mật khẩu hiện tại!");
-        if (!newPass || newPass.length < 6) return alert("Mật khẩu mới phải từ 6 ký tự trở lên!");
+        if (!oldPass) return showNotification("Vui lòng nhập mật khẩu hiện tại!", "error");
+        if (!newPass || newPass.length < 6) return showNotification("Mật khẩu mới phải từ 6 ký tự trở lên!", "error");
 
         try {
-            // Xác thực mật khẩu cũ
             const { error: signInError } = await db.auth.signInWithPassword({ email: userEmail, password: oldPass });
-            if (signInError) return alert("Mật khẩu hiện tại không chính xác!");
+            if (signInError) return showNotification("Mật khẩu hiện tại không chính xác!", "error");
 
-            // Đổi mật khẩu mới
             const { error: updateError } = await db.auth.updateUser({ password: newPass });
             if (updateError) throw updateError;
 
-            alert("Đổi mật khẩu thành công!");
+            showNotification("Đổi mật khẩu thành công!", "success");
             document.getElementById('oldPassword').value = '';
             document.getElementById('newPassword').value = '';
-        } catch (err) { alert("Lỗi đổi mật khẩu: " + err.message); }
+        } catch (err) { showNotification("Lỗi đổi mật khẩu: " + err.message, "error"); }
     });
 }
 
 // ==========================================
-// XỬ LÝ ĐĂNG XUẤT (XÓA SẠCH DỮ LIỆU)
+// XỬ LÝ ĐĂNG XUẤT
 // ==========================================
 const btnLogout = document.getElementById('btnLogout');
 if (btnLogout) {
@@ -330,20 +327,14 @@ if (btnCancelLogout) {
 const btnConfirmLogout = document.getElementById('btnConfirmLogout');
 if (btnConfirmLogout) {
     btnConfirmLogout.addEventListener('click', async () => {
-        // 1. Đăng xuất khỏi Supabase
         await db.auth.signOut();
         currentUser = null;
-        
-        // 2. XÓA TOÀN BỘ DỮ LIỆU LƯU TRÊN MÁY
         localStorage.removeItem('proton_accounts');
         localStorage.removeItem('proton_settings');
         sessionStorage.clear();
-        
-        // 3. Xóa mảng trong bộ nhớ
         accounts = [];
         settings = { theme: 'light', password: '' }; 
         
-        // 4. Tải lại trang
         document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
         setTimeout(() => {
             const modalLogout = document.getElementById('modalLogout');
@@ -355,7 +346,7 @@ if (btnConfirmLogout) {
 }
 
 // ==========================================
-// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT KHÁC
+// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT
 // ==========================================
 window.openDeleteModal = function(index) {
     if (!checkLogin()) return;
@@ -384,6 +375,7 @@ if (btnConfirmDelete) {
         if (deleteIndex > -1) {
             accounts.splice(deleteIndex, 1); 
             saveData(); renderAccounts(); autoSync(); 
+            showNotification("Đã xóa tài khoản!", "success");
             document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
             setTimeout(() => {
                 document.getElementById('modalDelete').classList.add('hidden');
@@ -428,13 +420,14 @@ if (btnSaveAdd) {
         if (!checkLogin()) return;
         const name = document.getElementById('inputName').value.trim();
         let secret = document.getElementById('inputSecret').value.trim();
-        if (!name || !secret) return;
+        if (!name || !secret) return showNotification("Vui lòng nhập đủ thông tin!", "error");
         if (secret.startsWith('otpauth://')) {
             const match = secret.match(/[?&]secret=([^&]+)/);
             if (match) secret = decodeURIComponent(match[1]);
         }
         accounts.push({ name, secret });
         saveData(); renderAccounts(); autoSync();
+        showNotification("Đã thêm tài khoản!", "success");
         document.getElementById('inputName').value = '';
         document.getElementById('inputSecret').value = '';
         document.getElementById('btnCancelAdd').click();
@@ -477,7 +470,7 @@ if (btnSaveSettings) {
         settings.password = document.getElementById('inputPassword').value.trim();
         saveSettings(); autoSync();
         document.getElementById('btnCloseSettings').click();
-        alert("Đã lưu cài đặt!");
+        showNotification("Đã lưu cài đặt!", "success");
     });
 }
 
@@ -497,7 +490,9 @@ if (btnImport) {
             reader.onload = event => {
                 try {
                     const data = JSON.parse(event.target.result);
-                    if (data.salt && data.content && !data.entries) { alert("LỖI: File bị MÃ HÓA!"); return; }
+                    if (data.salt && data.content && !data.entries) { 
+                        return showNotification("LỖI: File bị MÃ HÓA! Hãy xuất dạng Plain text.", "error"); 
+                    }
                     let extractedAccounts = [];
                     function scanObject(obj) {
                         if (!obj) return;
@@ -524,10 +519,13 @@ if (btnImport) {
                                 accounts.push(newAcc); count++;
                             }
                         });
-                        if (count > 0) { saveData(); renderAccounts(); autoSync(); alert(`Import thành công ${count} tài khoản!`); }
-                        else { alert("Tất cả tài khoản đã có sẵn."); }
-                    } else { alert("Không tìm thấy mã 2FA."); }
-                } catch (err) { alert("Lỗi đọc file JSON."); }
+                        if (count > 0) { 
+                            saveData(); renderAccounts(); autoSync(); 
+                            showNotification(`Import thành công ${count} tài khoản!`, "success"); 
+                        }
+                        else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
+                    } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
+                } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
             };
             reader.readAsText(file);
         };
@@ -546,7 +544,7 @@ if (btnUnlock) {
             document.getElementById('lockScreen').classList.add('hidden-lock');
             document.getElementById('unlockPass').value = '';
         } else {
-            alert("Mật khẩu không chính xác!");
+            showNotification("Mật khẩu không chính xác!", "error");
         }
     });
 }
