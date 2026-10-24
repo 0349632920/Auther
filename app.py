@@ -7,12 +7,10 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 def index():
     return send_from_directory('.', 'index.html')
 
-# Router cho trang Đăng nhập
 @app.route('/login')
 def login_page():
     return send_from_directory('.', 'login.html')
 
-# Router cho trang Đăng ký
 @app.route('/register')
 def register_page():
     return send_from_directory('.', 'register.html')
