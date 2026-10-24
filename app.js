@@ -46,7 +46,7 @@ function checkLogin() {
 }
 
 // ==========================================
-// THUẬT TOÁN TẠO MÃ OTP
+// THUẬT TOÁN TẠO MÃ OTP (Hỗ trợ tính mã Next)
 // ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
@@ -69,18 +69,21 @@ async function hmacSha1(key, message) {
     return new Uint8Array(signature);
 }
 
-async function generateOTP(secret) {
+async function generateOTP(secret, offset = 0) {
     try {
         let cleanSecret = secret.toUpperCase().replace(/[^A-Z2-7]/g, '');
         const key = base32Decode(cleanSecret);
-        const epoch = Math.round(new Date().getTime() / 1000.0);
+        
+        // Offset cho phép tính mã của tương lai (VD: +30 giây để lấy mã next)
+        const epoch = Math.round(new Date().getTime() / 1000.0) + offset;
         const timeStep = Math.floor(epoch / 30);
+        
         const timeBuffer = new Uint8Array(8);
         let temp = timeStep;
         for (let i = 7; i >= 0; i--) { timeBuffer[i] = temp & 0xff; temp = temp >> 8; }
         const hmac = await hmacSha1(key, timeBuffer);
-        const offset = hmac[hmac.length - 1] & 0xf;
-        const code = ((hmac[offset] & 0x7f) << 24 | (hmac[offset + 1] & 0xff) << 16 | (hmac[offset + 2] & 0xff) << 8 | (hmac[offset + 3] & 0xff)) % 1000000;
+        const offsetIndex = hmac[hmac.length - 1] & 0xf;
+        const code = ((hmac[offsetIndex] & 0x7f) << 24 | (hmac[offsetIndex + 1] & 0xff) << 16 | (hmac[offsetIndex + 2] & 0xff) << 8 | (hmac[offsetIndex + 3] & 0xff)) % 1000000;
         return code.toString().padStart(6, '0');
     } catch (e) { return "Error"; }
 }
@@ -210,13 +213,25 @@ function renderAccounts() {
                         <p class="text-xs text-gray-400 mt-1 font-semibold">2FA Code</p>
                     </div>
                 </div>
-                <div class="relative w-9 h-9 flex items-center justify-center shrink-0">
-                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36"><path class="text-gray-200 dark:text-gray-600" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="text-roblox arc" stroke-dasharray="100, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg>
+                <!-- VÒNG TRÒN ĐẾM GIÂY -->
+                <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
+                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                        <path class="text-gray-200 dark:text-gray-600" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="text-roblox arc" stroke-dasharray="100, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                    <!-- Số giây nằm trong vòng tròn -->
+                    <span class="absolute text-[10px] font-bold text-gray-600 dark:text-gray-300 sec-label">30</span>
                 </div>
             </div>
             <div class="mt-5 flex items-end justify-between">
+                <!-- MÃ HIỆN TẠI -->
                 <div class="text-[32px] font-mono font-bold tracking-tight text-gray-900 dark:text-white code-display leading-none" data-secret="${account.secret}">------ ------</div>
-                <div class="flex flex-col items-end"><span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider next-label">Next</span><span class="text-sm text-gray-500 dark:text-gray-400 font-semibold sec-label">30s</span></div>
+                
+                <!-- MÃ TIẾP THEO (NEXT) -->
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Next</span>
+                    <span class="text-[16px] font-mono font-bold text-gray-500 next-code" data-secret="${account.secret}">------</span>
+                </div>
             </div>
         `;
         accountList.appendChild(card);
@@ -229,21 +244,38 @@ async function updateCodes() {
     const remaining = 30 - (now % 30);
     const fraction = remaining / 30;
     
+    // Cập nhật vòng tròn
     document.querySelectorAll('.arc').forEach(arc => {
         arc.style.strokeDasharray = `${fraction * 100}, 100`;
         if (remaining <= 5) { arc.classList.remove('text-roblox'); arc.classList.add('text-red-500'); }
         else { arc.classList.remove('text-red-500'); arc.classList.add('text-roblox'); }
     });
+
+    // Cập nhật số giây bên trong vòng tròn
+    document.querySelectorAll('.sec-label').forEach(el => { el.textContent = `${remaining}`; });
     
+    // Cập nhật Mã Hiện Tại và Mã Next
     document.querySelectorAll('.code-display').forEach(async el => {
         if (isAppLocked) { el.textContent = "••• •••"; return; }
         const secret = el.getAttribute('data-secret');
         if (!secret) return;
+        
         const code = await generateOTP(secret);
-        el.textContent = code !== "Error" ? `${code.slice(0,3)} ${code.slice(3)}` : "Lỗi Key";
+        const nextCode = await generateOTP(secret, 30);
+        
+        if (code !== "Error") {
+            el.textContent = `${code.slice(0,3)} ${code.slice(3)}`;
+            
+            // Tìm thẻ cha để cập nhật mã Next
+            const card = el.closest('.roblox-card');
+            if (card) {
+                const nextEl = card.querySelector('.next-code');
+                if (nextEl) nextEl.textContent = `${nextCode.slice(0,3)} ${nextCode.slice(3)}`;
+            }
+        } else {
+            el.textContent = "Lỗi Key";
+        }
     });
-    
-    document.querySelectorAll('.sec-label').forEach(el => { el.textContent = `${remaining}s`; });
 }
 
 async function copyCode(secret) {
