@@ -9,13 +9,13 @@
   "theme_color": "#00A2FF",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/lock/materialicons/512dp/2x/baseline_lock_black_512dp.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/6195/6195699.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/lock/materialicons/192dp/2x/baseline_lock_black_192dp.png",
+      "src": "https://cdn-icons-png.flaticon.com/192/6195/6195699.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
@@ -23,7 +23,7 @@
   ],
   "screenshots": [
     {
-      "src": "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/lock/materialicons/512dp/2x/baseline_lock_black_512dp.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/6195/6195699.png",
       "sizes": "512x512",
       "type": "image/png"
     }
