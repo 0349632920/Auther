@@ -20,6 +20,16 @@
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
 
+    <!-- MÀN HÌNH KHÓA -->
+    <div id="lockScreen" class="hidden-lock">
+        <div class="w-20 h-20 bg-proton rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-proton/30"><i class="fas fa-lock text-4xl text-white"></i></div>
+        <h2 class="text-2xl font-bold mb-2">Ứng dụng đã khóa</h2>
+        <div class="relative w-72 mt-6">
+            <input type="password" id="unlockPass" placeholder="Mật khẩu..." class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+            <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 bg-proton text-white rounded-xl hover:bg-[#5B3DD6] btn-anim"><i class="fas fa-arrow-right"></i></button>
+        </div>
+    </div>
+
     <!-- THANH CÔNG CỤ -->
     <div class="flex items-center justify-between px-8 py-6 max-w-5xl w-full mx-auto">
         <div class="flex items-center gap-4 w-full">
@@ -33,7 +43,10 @@
         </div>
         
         <div class="flex gap-3 ml-4">
-            <a href="/login" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton" title="Tài khoản"><i class="fas fa-user text-lg"></i></a>
+            <!-- Nút User: Sẽ được điều hướng bằng JS -->
+            <button id="btnUser" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton" title="Tài khoản">
+                <i class="fas fa-user text-lg" id="iconUser"></i>
+            </button>
             <button id="btnImport" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton"><i class="fas fa-file-import text-lg"></i></button>
             <button id="btnSettings" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton"><i class="fas fa-cog text-lg"></i></button>
         </div>
@@ -108,6 +121,38 @@
             </div>
             <div class="flex justify-end mt-4">
                 <button id="btnSaveSettings" class="px-6 py-3 rounded-xl bg-proton text-white font-semibold hover:bg-[#5B3DD6] shadow-lg shadow-proton/30 btn-anim">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PROFILE (MỚI) -->
+    <div id="modalProfile" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-3xl p-8 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalProfileContent">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Hồ sơ cá nhân</h2>
+                <button id="btnCloseProfile" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 btn-anim"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                <div class="w-14 h-14 bg-proton text-white rounded-full flex items-center justify-center text-2xl shadow-lg shadow-proton/30">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 font-medium">Đã đăng nhập</p>
+                    <p class="font-bold text-lg" id="profileEmail">...</p>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="font-semibold mb-2">Đổi mật khẩu tài khoản</h3>
+                <input type="password" id="newPassword" placeholder="Mật khẩu mới..." class="w-full bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 px-4 py-3 rounded-xl mb-2 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+                <button id="btnChangePassword" class="w-full py-2.5 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 btn-anim text-sm">Cập nhật mật khẩu</button>
+            </div>
+
+            <div class="border-t border-gray-100 dark:border-gray-800 pt-6">
+                <button id="btnLogout" class="w-full py-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 font-semibold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors btn-anim flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
             </div>
         </div>
     </div>
