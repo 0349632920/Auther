@@ -74,10 +74,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadData();
     setInterval(updateCodes, 1000);
     await checkUserSession();
-    setupEventListeners(); // Gọi sau khi HTML tải xong
+    setupEventListeners();
 });
 
-const accountList = document.querySelector('#accountList .grid');
+const accountList = document.getElementById('sortableGrid');
 const emptyState = document.getElementById('emptyState');
 
 function loadSettings() {
@@ -97,7 +97,6 @@ function loadSettings() {
         } catch(e) {}
     }
 }
-
 function saveSettings() { localStorage.setItem('proton_settings', JSON.stringify(settings)); }
 function applyTheme(theme) {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -113,7 +112,6 @@ function updateAutoLockUI() {
         btn.classList.remove('bg-roblox'); btn.classList.add('bg-gray-300'); thumb.style.transform = 'translateX(0)';
     }
 }
-
 function loadData() {
     const saved = localStorage.getItem('proton_accounts');
     if (saved) {
@@ -246,13 +244,10 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// ==========================================
-// GẮN SỰ KIỆN CHO TẤT CẢ CÁC NÚT
-// ==========================================
 function setupEventListeners() {
     document.getElementById('btnAdd')?.addEventListener('click', () => {
         if (!checkLogin()) return;
-        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
+        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
         document.getElementById('modalAdd').classList.remove('hidden');
         document.getElementById('modalAdd').classList.add('flex');
         setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
@@ -373,10 +368,12 @@ function setupEventListeners() {
         settings.theme = settings.theme === 'light' ? 'dark' : 'light';
         applyTheme(settings.theme);
     });
+
     document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
         settings.autoLock = !settings.autoLock;
         updateAutoLockUI();
     });
+
     document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
         settings.password = document.getElementById('inputPassword').value.trim();
         saveSettings(); autoSync();
@@ -409,7 +406,7 @@ function setupEventListeners() {
     });
 
     window.openDeleteModal = function(index) {
-        if (!checkLogin() || isAppLocked) return;
+        if (!checkLogin() || isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
         deleteIndex = index;
         document.getElementById('deleteName').textContent = accounts[index].name;
         document.getElementById('modalDelete').classList.remove('hidden');
@@ -454,7 +451,7 @@ function setupEventListeners() {
     document.getElementById('unlockPass')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') document.getElementById('btnUnlock').click();
     });
-    
+
     document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
         if (!checkLogin()) return;
         const oldPass = document.getElementById('oldPassword').value.trim();
