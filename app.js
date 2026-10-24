@@ -7,15 +7,25 @@ let settings = { theme: 'light', password: '' };
 let currentUser = null;
 let deleteIndex = -1;
 let isCloudLoaded = false;
+let isAppLocked = false; // Biến kiểm tra xem app có đang bị khóa không
 
+// ==========================================
+// HÀM HIỂN THỊ THÔNG BÁO (TOAST)
+// ==========================================
 function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
+
     const icon = type === 'error' ? '<i class="fas fa-exclamation-circle text-lg"></i>' : '<i class="fas fa-check-circle text-lg"></i>';
     toast.innerHTML = `${icon} <span>${message}</span>`;
-    toast.style.backgroundColor = type === 'error' ? '#EF4444' : '#10B981';
+    
+    if (type === 'error') toast.style.backgroundColor = '#EF4444';
+    else if (type === 'success') toast.style.backgroundColor = '#10B981';
+    else toast.style.backgroundColor = '#00A2FF';
+
     toast.classList.remove('opacity-0', 'translate-y-10');
     toast.classList.add('opacity-100', 'translate-y-0');
+
     clearTimeout(window.toastTimeout);
     window.toastTimeout = setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-10');
@@ -23,16 +33,21 @@ function showNotification(message, type = 'error') {
     }, 3000);
 }
 
+// ==========================================
+// HÀM KIỂM TRA ĐĂNG NHẬP
+// ==========================================
 function checkLogin() {
     if (!currentUser) {
-        showNotification("Vui lòng đăng nhập!", "error");
+        showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
         setTimeout(() => { window.location.href = "/login"; }, 1000);
         return false;
     }
     return true;
 }
 
-// Thuật toán OTP
+// ==========================================
+// THUẬT TOÁN TẠO MÃ OTP
+// ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
@@ -68,6 +83,9 @@ async function generateOTP(secret) {
     } catch (e) { return "Error"; }
 }
 
+// ==========================================
+// KHỞI TẠO
+// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
@@ -84,8 +102,13 @@ function loadSettings() {
         try {
             settings = JSON.parse(saved);
             applyTheme(settings.theme);
-            if (settings.password && document.getElementById('lockScreen')) {
-                document.getElementById('lockScreen').classList.remove('hidden-lock');
+            
+            // Nếu có mật khẩu bảo vệ, kích hoạt trạng thái Khóa (Che mã)
+            if (settings.password) {
+                isAppLocked = true;
+                if (document.getElementById('lockScreen')) {
+                    document.getElementById('lockScreen').classList.remove('hidden-lock');
+                }
             }
         } catch(e) {}
     }
@@ -108,6 +131,9 @@ function loadData() {
 
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
+// ==========================================
+// ĐỒNG BỘ & TẢI DỮ LIỆU
+// ==========================================
 async function checkUserSession() {
     try {
         const { data: { session }, error: sessionError } = await db.auth.getSession();
@@ -148,6 +174,9 @@ async function autoSync() {
     } catch (err) { console.warn("Lỗi đồng bộ:", err.message); }
 }
 
+// ==========================================
+// RENDER GIAO DIỆN
+// ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -160,13 +189,17 @@ function renderAccounts() {
         
         card.onclick = (e) => {
             if (e.target.closest('.btn-delete')) return; 
+            if (isAppLocked) {
+                showNotification("Vui lòng mở khóa ứng dụng để copy mã!", "error");
+                return;
+            }
             card.style.transform = 'scale(0.96)';
             setTimeout(() => { card.style.transform = ''; }, 150);
             copyCode(account.secret);
         };
         
         card.innerHTML = `
-            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-10" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
+            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors z-10" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
                 <i class="fas fa-trash-alt text-sm"></i>
             </button>
             <div class="flex items-start justify-between pr-8">
@@ -201,16 +234,28 @@ async function updateCodes() {
         if (remaining <= 5) { arc.classList.remove('text-roblox'); arc.classList.add('text-red-500'); }
         else { arc.classList.remove('text-red-500'); arc.classList.add('text-roblox'); }
     });
+    
     document.querySelectorAll('.code-display').forEach(async el => {
+        // NẾU APP ĐANG BỊ KHÓA, HIỂN THỊ DẤU CHẤM THAY VÌ MÃ
+        if (isAppLocked) {
+            el.textContent = "••• •••";
+            return;
+        }
+        
         const secret = el.getAttribute('data-secret');
         if (!secret) return;
         const code = await generateOTP(secret);
         el.textContent = code !== "Error" ? `${code.slice(0,3)} ${code.slice(3)}` : "Lỗi Key";
     });
+    
     document.querySelectorAll('.sec-label').forEach(el => { el.textContent = `${remaining}s`; });
 }
 
 async function copyCode(secret) {
+    if (isAppLocked) {
+        showNotification("Vui lòng mở khóa ứng dụng để copy mã!", "error");
+        return;
+    }
     try {
         const code = await generateOTP(secret);
         if (code !== "Error") {
@@ -225,6 +270,9 @@ function toggleEmptyState() {
     else emptyState.classList.add('hidden');
 }
 
+// ==========================================
+// SỰ KIỆN NGƯỜI DÙNG & PROFILE
+// ==========================================
 const btnUser = document.getElementById('btnUser');
 if (btnUser) {
     btnUser.addEventListener('click', () => {
@@ -255,6 +303,7 @@ const btnChangePassword = document.getElementById('btnChangePassword');
 if (btnChangePassword) {
     btnChangePassword.addEventListener('click', async () => {
         if (!checkLogin()) return;
+
         const oldPass = document.getElementById('oldPassword').value.trim();
         const newPass = document.getElementById('newPassword').value.trim();
         const userEmail = currentUser.email;
@@ -276,6 +325,9 @@ if (btnChangePassword) {
     });
 }
 
+// ==========================================
+// XỬ LÝ ĐĂNG XUẤT
+// ==========================================
 const btnLogout = document.getElementById('btnLogout');
 if (btnLogout) {
     btnLogout.addEventListener('click', () => {
@@ -321,8 +373,15 @@ if (btnConfirmLogout) {
     });
 }
 
+// ==========================================
+// CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT
+// ==========================================
 window.openDeleteModal = function(index) {
     if (!checkLogin()) return;
+    if (isAppLocked) {
+        showNotification("Vui lòng mở khóa ứng dụng để xóa mã!", "error");
+        return;
+    }
     deleteIndex = index;
     document.getElementById('deleteName').textContent = accounts[index].name;
     document.getElementById('modalDelete').classList.remove('hidden');
@@ -363,6 +422,10 @@ const btnAdd = document.getElementById('btnAdd');
 if (btnAdd) {
     btnAdd.addEventListener('click', () => {
         if (!checkLogin()) return;
+        if (isAppLocked) {
+            showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
+            return;
+        }
         document.getElementById('modalAdd').classList.remove('hidden');
         document.getElementById('modalAdd').classList.add('flex');
         setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
@@ -411,6 +474,10 @@ const btnSettings = document.getElementById('btnSettings');
 if (btnSettings) {
     btnSettings.addEventListener('click', () => {
         if (!checkLogin()) return;
+        if (isAppLocked) {
+            showNotification("Vui lòng mở khóa ứng dụng để thay đổi cài đặt!", "error");
+            return;
+        }
         document.getElementById('modalSettings').classList.remove('hidden');
         document.getElementById('modalSettings').classList.add('flex');
         setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
@@ -447,10 +514,17 @@ if (btnSaveSettings) {
     });
 }
 
+// ==========================================
+// IMPORT FILE JSON
+// ==========================================
 const btnImport = document.getElementById('btnImport');
 if (btnImport) {
     btnImport.addEventListener('click', () => {
         if (!checkLogin()) return;
+        if (isAppLocked) {
+            showNotification("Vui lòng mở khóa ứng dụng để Import!", "error");
+            return;
+        }
         const input = document.createElement('input');
         input.type = 'file'; input.accept = '.json';
         input.onchange = e => {
@@ -503,13 +577,18 @@ if (btnImport) {
     });
 }
 
+// ==========================================
+// MÀN HÌNH KHÓA (XỬ LÝ MỞ KHÓA)
+// ==========================================
 const btnUnlock = document.getElementById('btnUnlock');
 if (btnUnlock) {
     btnUnlock.addEventListener('click', () => {
         const pass = document.getElementById('unlockPass').value.trim();
         if (pass === settings.password) {
+            isAppLocked = false; // Mở khóa thành công
             document.getElementById('lockScreen').classList.add('hidden-lock');
             document.getElementById('unlockPass').value = '';
+            updateCodes(); // Cập nhật lại mã ngay lập tức
         } else {
             showNotification("Mật khẩu không chính xác!", "error");
         }
