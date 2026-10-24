@@ -3,10 +3,6 @@ from flask import Flask, send_from_directory
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
-@app.route('/health')
-def health():
-    return "OK", 200
-
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
@@ -18,6 +14,11 @@ def login_page():
 @app.route('/register')
 def register_page():
     return send_from_directory('.', 'register.html')
+
+# Thêm route health check để chống Render bị ngủ
+@app.route('/health')
+def health():
+    return "OK", 200
 
 @app.route('/<path:path>')
 def serve_static(path):
