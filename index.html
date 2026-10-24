@@ -25,13 +25,14 @@
     <link rel="stylesheet" href="style.css">
     
     <style>
+        /* CSS cho màn hình khóa */
         #lockScreen {
             position: fixed; inset: 0; background: #F2F4F5; z-index: 999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             transition: opacity 0.4s ease;
         }
         .dark #lockScreen { background: #232527; }
-        #lockScreen.hidden-lock { opacity: 0; pointer-events: none; }
+        #lockScreen.hidden-lock { opacity: 0; pointer-events: none; display: none; }
         
         .roblox-btn { background-color: #00A2FF; border-radius: 8px; font-weight: 600; transition: all 0.2s ease; }
         .roblox-btn:hover { background-color: #0084D1; }
@@ -42,31 +43,40 @@
         .roblox-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
-<body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
+<body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300 relative">
 
     <div id="toast" class="custom-toast"></div>
 
     <!-- MÀN HÌNH KHÓA -->
     <div id="lockScreen" class="hidden-lock">
-        <div class="w-20 h-20 bg-roblox rounded-2xl flex items-center justify-center mb-6 shadow-soft"><i class="fas fa-lock text-4xl text-white"></i></div>
+        <div class="w-20 h-20 bg-roblox rounded-2xl flex items-center justify-center mb-6 shadow-soft">
+            <i class="fas fa-lock text-4xl text-white"></i>
+        </div>
         <h2 class="text-2xl font-bold mb-2">Ứng dụng đã khóa</h2>
         <div class="relative w-72 mt-4">
             <input type="password" id="unlockPass" placeholder="Nhập mật khẩu..." class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-xl shadow-soft focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
-            <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 roblox-btn text-white rounded-lg"><i class="fas fa-arrow-right"></i></button>
+            <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 roblox-btn text-white rounded-lg">
+                <i class="fas fa-arrow-right"></i>
+            </button>
         </div>
     </div>
 
     <!-- THANH CÔNG CỤ -->
     <div class="flex items-center justify-between px-6 md:px-8 py-5 max-w-5xl w-full mx-auto">
         <div class="flex items-center gap-3 w-full">
-            <button id="btnAdd" class="roblox-btn flex items-center gap-2 text-white px-5 py-2.5 shadow-soft"><i class="fas fa-plus"></i> Add</button>
+            <button id="btnAdd" class="roblox-btn flex items-center gap-2 text-white px-5 py-2.5 shadow-soft">
+                <i class="fas fa-plus"></i> Add
+            </button>
             <div class="relative flex-1">
                 <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
                 <input type="text" id="searchInput" placeholder="Search accounts..." class="w-full bg-robloxGray dark:bg-darkcard text-gray-800 dark:text-gray-100 pl-11 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-roblox border border-transparent dark:border-gray-700 transition-all">
             </div>
         </div>
+        
         <div class="flex gap-2 ml-4">
-            <button id="btnUser" class="w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-user text-lg" id="iconUser"></i></button>
+            <button id="btnUser" class="w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition">
+                <i class="fas fa-user text-lg" id="iconUser"></i>
+            </button>
             <button id="btnImport" class="w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-file-import text-lg"></i></button>
             <button id="btnSettings" class="w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-cog text-lg"></i></button>
         </div>
@@ -76,7 +86,9 @@
     <div id="accountList" class="flex-1 overflow-y-auto px-6 md:px-8 pb-10">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-max"></div>
         <div id="emptyState" class="flex flex-col items-center justify-center h-full mt-20 hidden opacity-0 transition-opacity duration-500">
-            <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><i class="fas fa-shield-alt text-4xl text-gray-400"></i></div>
+            <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <i class="fas fa-shield-alt text-4xl text-gray-400"></i>
+            </div>
             <h2 class="text-2xl font-bold text-gray-700 dark:text-gray-300">Chưa có tài khoản nào</h2>
         </div>
     </div>
