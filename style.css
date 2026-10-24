@@ -20,3 +20,28 @@
     transform: translate(-50%, 0) scale(1);
     opacity: 1;
 }
+
+/* Toast Notification */
+.custom-toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    z-index: 9999;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.custom-toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+.toast-error { background-color: #EF4444; } /* Màu đỏ cho lỗi */
+.toast-success { background-color: #10B981; } /* Màu xanh lá cho thành công */
