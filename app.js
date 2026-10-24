@@ -496,7 +496,7 @@ window.openDeleteModal = function(index) {
     setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
 }
 
-document.getElementById('btnCancelDelete').addEventListener('click', () => {
+    document.getElementById('...')?.addEventListener
     document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
     setTimeout(() => {
         document.getElementById('modalDelete').classList.add('hidden');
