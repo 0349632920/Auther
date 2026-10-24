@@ -384,4 +384,91 @@ function setupEventListeners() {
         showNotification("Đã lưu cài đặt!", "success");
     });
 
-    document.getElementById('btnLogout')?.addEventListener('click', ()
+    document.getElementById('btnLogout')?.addEventListener('click', () => {
+        if (!checkLogin()) return;
+        document.getElementById('modalLogout').classList.remove('hidden');
+        document.getElementById('modalLogout').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalLogoutContent').style.transform = 'scale(1)'; }, 50);
+    });
+
+    document.getElementById('btnCancelLogout')?.addEventListener('click', () => {
+        document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalLogout').classList.add('hidden');
+            document.getElementById('modalLogout').classList.remove('flex');
+        }, 200);
+    });
+
+    document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
+        await db.auth.signOut();
+        currentUser = null;
+        localStorage.removeItem('proton_accounts');
+        localStorage.removeItem('proton_settings');
+        sessionStorage.clear();
+        window.location.href = "/login";
+    });
+
+    window.openDeleteModal = function(index) {
+        if (!checkLogin() || isAppLocked) return;
+        deleteIndex = index;
+        document.getElementById('deleteName').textContent = accounts[index].name;
+        document.getElementById('modalDelete').classList.remove('hidden');
+        document.getElementById('modalDelete').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
+    }
+
+    document.getElementById('btnCancelDelete')?.addEventListener('click', () => {
+        document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalDelete').classList.add('hidden');
+            document.getElementById('modalDelete').classList.remove('flex');
+        }, 200);
+    });
+
+    document.getElementById('btnConfirmDelete')?.addEventListener('click', () => {
+        if (deleteIndex > -1) {
+            accounts.splice(deleteIndex, 1); 
+            saveData(); renderAccounts(); autoSync(); 
+            showNotification("Đã xóa tài khoản!", "success");
+            document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                document.getElementById('modalDelete').classList.add('hidden');
+                document.getElementById('modalDelete').classList.remove('flex');
+            }, 200);
+            deleteIndex = -1;
+        }
+    });
+
+    document.getElementById('btnUnlock')?.addEventListener('click', () => {
+        const pass = document.getElementById('unlockPass').value.trim();
+        if (pass === settings.password) {
+            isAppLocked = false; 
+            document.getElementById('lockScreen').classList.add('hidden-lock');
+            document.getElementById('unlockPass').value = '';
+            updateCodes(); 
+        } else {
+            showNotification("Mật khẩu không chính xác!", "error");
+        }
+    });
+
+    document.getElementById('unlockPass')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('btnUnlock').click();
+    });
+    
+    document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
+        if (!checkLogin()) return;
+        const oldPass = document.getElementById('oldPassword').value.trim();
+        const newPass = document.getElementById('newPassword').value.trim();
+        if (!oldPass) return showNotification("Vui lòng nhập mật khẩu hiện tại!", "error");
+        if (!newPass || newPass.length < 6) return showNotification("Mật khẩu mới phải từ 6 ký tự!", "error");
+        try {
+            const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
+            if (signInError) return showNotification("Mật khẩu hiện tại không chính xác!", "error");
+            const { error: updateError } = await db.auth.updateUser({ password: newPass });
+            if (updateError) throw updateError;
+            showNotification("Đổi mật khẩu thành công!", "success");
+            document.getElementById('oldPassword').value = '';
+            document.getElementById('newPassword').value = '';
+        } catch (err) { showNotification("Lỗi đổi mật khẩu!", "error"); }
+    });
+}
