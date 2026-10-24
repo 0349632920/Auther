@@ -32,21 +32,27 @@
     </div>
 
     <script>
-        const db = window.supabase.createClient('https://skwsuorigvxwwugpldvn.supabase.co', 'DÁN_ANON_KEY_CỦA_BẠN_VÀO_ĐÂY');
+        const SUPABASE_URL = 'https://skwsuorigvxwwugpldvn.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3N1b3JpZ3Z4d3d1Z3BsZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDY1NzAsImV4cCI6MjEwODM4MjU3MH0.-5MxD9VIFjANch9J0NMTFT-z-tM7eDDxdA1e4p8NFHc';
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
         document.getElementById('btnLogin').addEventListener('click', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
             
             if (!email || !password) return alert("Vui lòng nhập đủ thông tin!");
             
-            const { data, error } = await db.auth.signInWithPassword({ email, password });
-            if (error) {
-                alert("Lỗi đăng nhập: " + error.message);
-            } else {
-                alert("Đăng nhập thành công!");
-                window.location.href = "/"; // Chuyển về trang chủ
+            try {
+                const { data, error } = await db.auth.signInWithPassword({ email, password });
+                if (error) {
+                    alert("Lỗi đăng nhập: " + error.message);
+                } else {
+                    alert("Đăng nhập thành công!");
+                    window.location.href = "/";
+                }
+            } catch (err) {
+                alert("Lỗi kết nối: " + err.message);
             }
         });
     </script>
