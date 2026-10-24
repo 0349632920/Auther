@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proton Authenticator Cloud</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Thư viện Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { proton: '#6D4AFF', bg: '#F5F5F7', darkbg: '#121212', darkcard: '#1E1E1E' },
+                    boxShadow: { 'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)' }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { -webkit-font-smoothing: antialiased; transition: background-color 0.3s, color 0.3s; }
+        .card-anim { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card-anim:hover { transform: translateY(-4px); }
+        .card-anim:active { transform: translateY(2px) scale(0.98); }
+        .btn-anim { transition: all 0.2s ease; }
+        .btn-anim:active { transform: scale(0.92); }
+        .glass-search { background: rgba(229, 231, 235, 0.6); backdrop-filter: blur(10px); }
+        .dark .glass-search { background: rgba(40, 40, 40, 0.6); }
+        
+        #lockScreen { position: fixed; inset: 0; background: #F5F5F7; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; }
+        .dark #lockScreen { background: #121212; }
+        #lockScreen.hidden-lock { opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+    <!-- MÀN HÌNH KHÓA (PIN/WINDOWS HELLO) -->
+    <div id="lockScreen" class="hidden-lock">
+        <div class="w-20 h-20 bg-proton rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-proton/30">
+            <i class="fas fa-lock text-4xl text-white"></i>
+        </div>
+        <h2 class="text-2xl font-bold mb-2">Ứng dụng đã khóa</h2>
+        <p class="text-gray-500 mb-8" id="lockSubtitle">Nhập mật khẩu để truy cập</p>
+        
+        <div class="relative w-72">
+            <input type="password" id="unlockPass" placeholder="Mật khẩu..." 
+                class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-2xl shadow-soft focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+            <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 bg-proton text-white rounded-xl hover:bg-[#5B3DD6] btn-anim">
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <button id="btnBiometricUnlock" class="hidden mt-6 flex items-center gap-2 px-6 py-3 bg-white dark:bg-darkcard border border-gray-200 dark:border-gray-700 rounded-2xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 btn-anim shadow-soft text-proton">
+            <i class="fas fa-fingerprint text-xl"></i> Dùng Windows Hello
+        </button>
+    </div>
+
+    <!-- THANH CÔNG CỤ -->
+    <div class="flex items-center justify-between px-8 py-6 max-w-5xl w-full mx-auto">
+        <div class="flex items-center gap-4 w-full">
+            <button id="btnAdd" class="btn-anim flex items-center gap-2 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 px-5 py-2.5 rounded-2xl font-semibold shadow-soft border border-gray-200 dark:border-gray-700">
+                <i class="fas fa-plus text-proton"></i> Add
+            </button>
+            
+            <div class="relative flex-1">
+                <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                <input type="text" id="searchInput" placeholder="Search accounts..." 
+                    class="glass-search w-full text-gray-800 dark:text-gray-100 pl-11 pr-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-proton focus:bg-white dark:focus:bg-darkcard transition-all duration-300 border border-transparent dark:border-gray-700">
+            </div>
+        </div>
+        
+        <div class="flex gap-3 ml-4">
+            <!-- Nút Account -->
+            <button id="btnAccount" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton" title="Tài khoản">
+                <i class="fas fa-user text-lg" id="accountIcon"></i>
+            </button>
+            <button id="btnImport" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton" title="Import JSON">
+                <i class="fas fa-file-import text-lg"></i>
+            </button>
+            <button id="btnSettings" class="btn-anim w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-2xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-proton" title="Cài đặt">
+                <i class="fas fa-cog text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- DANH SÁCH TÀI KHOẢN -->
+    <div id="accountList" class="flex-1 overflow-y-auto px-8 pb-10">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-5xl mx-auto auto-rows-max"></div>
+        <div id="emptyState" class="flex flex-col items-center justify-center h-full mt-10 hidden opacity-0 transition-opacity duration-500">
+            <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <i class="fas fa-shield-alt text-4xl text-gray-400"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-700 dark:text-gray-300">Chưa có tài khoản nào</h2>
+            <p class="text-gray-500 mt-2 text-center max-w-sm">Thêm tài khoản mới hoặc Import file từ Proton.</p>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed bottom-10 left-1/2 bg-gray-900 dark:bg-white dark:text-gray-900 text-white px-6 py-3.5 rounded-2xl font-semibold shadow-2xl z-50 flex items-center gap-3">
+        <i class="fas fa-check-circle text-green-400 dark:text-green-600 text-lg"></i>
+        <span>One-time-code Copied!</span>
+    </div>
+
+    <!-- MODAL THÊM TÀI KHOẢN -->
+    <div id="modalAdd" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-3xl p-8 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalAddContent">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Thêm Tài Khoản</h2>
+                <button id="btnCloseModal" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 btn-anim"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Tên tài khoản</label>
+            <input type="text" id="inputName" placeholder="VD: Facebook, Google..." class="w-full bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 px-4 py-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700 transition-all">
+            <label class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Mã bảo mật</label>
+            <input type="text" id="inputSecret" placeholder="otpauth://... hoặc JBSWY3DP..." class="w-full bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 px-4 py-3 rounded-xl mb-8 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700 transition-all">
+            <div class="flex justify-end gap-3">
+                <button id="btnCancelAdd" class="px-6 py-3 rounded-xl text-gray-600 dark:text-gray-400 font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 btn-anim">Hủy</button>
+                <button id="btnSaveAdd" class="px-6 py-3 rounded-xl bg-proton text-white font-semibold hover:bg-[#5B3DD6] shadow-lg shadow-proton/30 btn-anim">Lưu tài khoản</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CÀI ĐẶT -->
+    <div id="modalSettings" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-3xl p-8 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalSettingsContent">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Cài đặt</h2>
+                <button id="btnCloseSettings" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 btn-anim"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="flex items-center justify-between mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
+                <div>
+                    <h3 class="font-semibold">Giao diện</h3>
+                    <p class="text-sm text-gray-500">Chọn chế độ Sáng hoặc Tối</p>
+                </div>
+                <button id="btnToggleTheme" class="w-14 h-8 bg-gray-200 dark:bg-proton rounded-full relative transition-colors duration-300">
+                    <div class="w-6 h-6 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="themeThumb"></div>
+                </button>
+            </div>
+            <div class="mb-6">
+                <h3 class="font-semibold mb-1">Mật khẩu bảo vệ</h3>
+                <input type="password" id="inputPassword" placeholder="Nhập mật khẩu..." class="w-full bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+            </div>
+            <div class="flex items-center justify-between mb-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div>
+                    <h3 class="font-semibold">Vân tay / Windows Hello</h3>
+                </div>
+                <button id="btnSetupBiometric" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-xl text-sm font-semibold transition btn-anim">Cài đặt</button>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button id="btnSaveSettings" class="px-6 py-3 rounded-xl bg-proton text-white font-semibold hover:bg-[#5B3DD6] shadow-lg shadow-proton/30 btn-anim">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL TÀI KHOẢN (ĐĂNG NHẬP / ĐỒNG BỘ) -->
+    <div id="modalAccount" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-3xl p-8 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalAccountContent">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Tài khoản & Đồng bộ</h2>
+                <button id="btnCloseAccount" class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 btn-anim"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <!-- Chưa đăng nhập -->
+            <div id="accountLoggedOut">
+                <p class="text-sm text-gray-500 mb-4">Đăng nhập để đồng bộ mã 2FA và Cài đặt lên Đám mây.</p>
+                <input type="email" id="inputEmail" placeholder="Email..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+                <input type="password" id="inputPassAuth" placeholder="Mật khẩu..." class="w-full bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-proton border border-gray-200 dark:border-gray-700">
+                
+                <div class="flex gap-3">
+                    <button id="btnLogin" class="flex-1 py-3 rounded-xl bg-proton text-white font-semibold hover:bg-[#5B3DD6] btn-anim">Đăng nhập</button>
+                    <button id="btnRegister" class="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 btn-anim">Tạo tài khoản</button>
+                </div>
+            </div>
+
+            <!-- Đã đăng nhập -->
+            <div id="accountLoggedIn" class="hidden">
+                <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                    <div class="w-12 h-12 bg-proton text-white rounded-full flex items-center justify-center text-xl"><i class="fas fa-user"></i></div>
+                    <div>
+                        <p class="text-xs text-gray-500">Đã đăng nhập</p>
+                        <p class="font-bold" id="lblUserEmail">...</p>
+                    </div>
+                </div>
+                
+                <button id="btnSyncUpload" class="w-full py-3 mb-3 rounded-xl bg-proton text-white font-semibold hover:bg-[#5B3DD6] btn-anim flex items-center justify-center gap-2">
+                    <i class="fas fa-cloud-upload-alt"></i> Đẩy dữ liệu lên Mây
+                </button>
+                <button id="btnSyncDownload" class="w-full py-3 mb-6 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 btn-anim flex items-center justify-center gap-2">
+                    <i class="fas fa-cloud-download-alt"></i> Tải dữ liệu từ Mây
+                </button>
+                
+                <button id="btnLogout" class="w-full py-3 rounded-xl border border-red-200 text-red-500 font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 btn-anim">Đăng xuất</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
