@@ -1,5 +1,5 @@
 const SUPABASE_URL = 'https://skwsuorigvxwwugpldvn.supabase.co';
-const SUPABASE_KEY = 'postgresql://postgres.skwsuorigvxwwugpldvn:[LuongHung0707@123]@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrd3N1b3JpZ3Z4d3d1Z3BsZHZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDY1NzAsImV4cCI6MjEwODM4MjU3MH0.-5MxD9VIFjANch9J0NMTFT-z-tM7eDDxdA1e4p8NFHc';
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let accounts = [];
