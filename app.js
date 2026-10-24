@@ -7,7 +7,9 @@ let settings = { theme: 'light', password: '' };
 let currentUser = null;
 let deleteIndex = -1;
 
-// Thuật toán OTP
+// ==========================================
+// THUẬT TOÁN TẠO MÃ OTP (WEB CRYPTO API)
+// ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
@@ -43,7 +45,9 @@ async function generateOTP(secret) {
     } catch (e) { return "Error"; }
 }
 
-// Khởi tạo
+// ==========================================
+// KHỞI TẠO & TẢI DỮ LIỆU
+// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
@@ -60,7 +64,10 @@ function loadSettings() {
         try {
             settings = JSON.parse(saved);
             applyTheme(settings.theme);
-            if (settings.password) document.getElementById('lockScreen').classList.remove('hidden-lock');
+            // Nếu có mật khẩu bảo vệ, hiện màn hình khóa
+            if (settings.password && document.getElementById('lockScreen')) {
+                document.getElementById('lockScreen').classList.remove('hidden-lock');
+            }
         } catch(e) {}
     }
 }
@@ -82,7 +89,9 @@ function loadData() {
 
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
-// Đồng bộ ngầm & Trạng thái người dùng
+// ==========================================
+// ĐỒNG BỘ SUPABASE & TRẠNG THÁI ĐĂNG NHẬP
+// ==========================================
 async function checkUserSession() {
     try {
         const { data: { session }, error: sessionError } = await db.auth.getSession();
@@ -90,13 +99,25 @@ async function checkUserSession() {
         
         if (session) {
             currentUser = session.user;
-            document.getElementById('iconUser').className = "fas fa-user-circle text-proton text-xl"; // Đổi icon khi đã đăng nhập
             
+            // Hiển thị tên (Bỏ đuôi @myauth.local)
+            const displayName = currentUser.email.replace('@myauth.local', '');
+            const profileEmailEl = document.getElementById('profileEmail');
+            if (profileEmailEl) profileEmailEl.textContent = displayName;
+            
+            const iconUser = document.getElementById('iconUser');
+            if (iconUser) iconUser.className = "fas fa-user-circle text-proton text-xl";
+
+            // Tự động tải dữ liệu từ Mây về khi đăng nhập
             const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
             if (!error && data && data.accounts) {
                 accounts = data.accounts;
                 saveData(); renderAccounts();
-                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
+                if (data.settings) { 
+                    settings = data.settings; 
+                    saveSettings(); 
+                    applyTheme(settings.theme); 
+                }
             }
         }
     } catch (err) {
@@ -107,13 +128,19 @@ async function checkUserSession() {
 async function autoSync() {
     if (!currentUser) return;
     try {
-        await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
+        await db.from('user_data').upsert({ 
+            user_id: currentUser.id, 
+            accounts: accounts, 
+            settings: settings 
+        });
     } catch (err) {
         console.warn("Lỗi đồng bộ ngầm:", err.message);
     }
 }
 
-// Render danh sách
+// ==========================================
+// HIỂN THỊ GIAO DIỆN
+// ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -199,53 +226,64 @@ function toggleEmptyState() {
 }
 
 // ==========================================
-// XỬ LÝ USER (PROFILE)
+// XỬ LÝ SỰ KIỆN NGƯỜI DÙNG & PROFILE
 // ==========================================
-document.getElementById('btnUser').addEventListener('click', () => {
-    if (currentUser) {
-        // Đã đăng nhập -> Hiện Profile
-        document.getElementById('profileEmail').textContent = currentUser.email;
-        document.getElementById('modalProfile').classList.remove('hidden');
-        document.getElementById('modalProfile').classList.add('flex');
-        setTimeout(() => { document.getElementById('modalProfileContent').style.transform = 'scale(1)'; }, 50);
-    } else {
-        // Chưa đăng nhập -> Chuyển sang trang Login
-        window.location.href = "/login";
-    }
-});
+const btnUser = document.getElementById('btnUser');
+if (btnUser) {
+    btnUser.addEventListener('click', () => {
+        if (currentUser) {
+            const modal = document.getElementById('modalProfile');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => { document.getElementById('modalProfileContent').style.transform = 'scale(1)'; }, 50);
+            }
+        } else {
+            window.location.href = "/login";
+        }
+    });
+}
 
-document.getElementById('btnCloseProfile').addEventListener('click', () => {
-    document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
-    setTimeout(() => {
-        document.getElementById('modalProfile').classList.add('hidden');
-        document.getElementById('modalProfile').classList.remove('flex');
-    }, 200);
-});
+const btnCloseProfile = document.getElementById('btnCloseProfile');
+if (btnCloseProfile) {
+    btnCloseProfile.addEventListener('click', () => {
+        document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            const modal = document.getElementById('modalProfile');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    });
+}
 
-// Đổi mật khẩu
-document.getElementById('btnChangePassword').addEventListener('click', async () => {
-    const newPass = document.getElementById('newPassword').value.trim();
-    if (!newPass || newPass.length < 6) return alert("Mật khẩu phải từ 6 ký tự!");
-    
-    try {
-        const { error } = await db.auth.updateUser({ password: newPass });
-        if (error) throw error;
-        alert("Đổi mật khẩu thành công!");
-        document.getElementById('newPassword').value = '';
-    } catch (err) {
-        alert("Lỗi đổi mật khẩu: " + err.message);
-    }
-});
+const btnChangePassword = document.getElementById('btnChangePassword');
+if (btnChangePassword) {
+    btnChangePassword.addEventListener('click', async () => {
+        const newPass = document.getElementById('newPassword').value.trim();
+        if (!newPass || newPass.length < 6) return alert("Mật khẩu phải từ 6 ký tự!");
+        
+        try {
+            const { error } = await db.auth.updateUser({ password: newPass });
+            if (error) throw error;
+            alert("Đổi mật khẩu thành công!");
+            document.getElementById('newPassword').value = '';
+        } catch (err) {
+            alert("Lỗi đổi mật khẩu: " + err.message);
+        }
+    });
+}
 
-// Đăng xuất
-document.getElementById('btnLogout').addEventListener('click', async () => {
-    await db.auth.signOut();
-    currentUser = null;
-    window.location.reload();
-});
+const btnLogout = document.getElementById('btnLogout');
+if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+        await db.auth.signOut();
+        currentUser = null;
+        window.location.reload();
+    });
+}
 
 // ==========================================
-// CÁC HÀM XÓA, THÊM, CÀI ĐẶT KHÁC (Giữ nguyên)
+// XÓA TÀI KHOẢN
 // ==========================================
 window.openDeleteModal = function(index) {
     deleteIndex = index;
@@ -255,122 +293,194 @@ window.openDeleteModal = function(index) {
     setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
 }
 
-document.getElementById('btnCancelDelete').addEventListener('click', () => {
-    document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
-    setTimeout(() => {
-        document.getElementById('modalDelete').classList.add('hidden');
-        document.getElementById('modalDelete').classList.remove('flex');
-    }, 200);
-});
-
-document.getElementById('btnConfirmDelete').addEventListener('click', () => {
-    if (deleteIndex > -1) {
-        accounts.splice(deleteIndex, 1); 
-        saveData(); renderAccounts(); autoSync(); 
+const btnCancelDelete = document.getElementById('btnCancelDelete');
+if (btnCancelDelete) {
+    btnCancelDelete.addEventListener('click', () => {
         document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
         setTimeout(() => {
             document.getElementById('modalDelete').classList.add('hidden');
             document.getElementById('modalDelete').classList.remove('flex');
         }, 200);
-        deleteIndex = -1;
-    }
-});
+    });
+}
 
-document.getElementById('btnAdd').addEventListener('click', () => {
-    document.getElementById('modalAdd').classList.remove('hidden');
-    document.getElementById('modalAdd').classList.add('flex');
-    setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
-});
-document.getElementById('btnCancelAdd').addEventListener('click', () => {
-    document.getElementById('modalAddContent').style.transform = 'scale(0.95)';
-    setTimeout(() => {
-        document.getElementById('modalAdd').classList.add('hidden');
-        document.getElementById('modalAdd').classList.remove('flex');
-    }, 200);
-});
+const btnConfirmDelete = document.getElementById('btnConfirmDelete');
+if (btnConfirmDelete) {
+    btnConfirmDelete.addEventListener('click', () => {
+        if (deleteIndex > -1) {
+            accounts.splice(deleteIndex, 1); 
+            saveData(); renderAccounts(); autoSync(); 
+            document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                document.getElementById('modalDelete').classList.add('hidden');
+                document.getElementById('modalDelete').classList.remove('flex');
+            }, 200);
+            deleteIndex = -1;
+        }
+    });
+}
 
-document.getElementById('btnSaveAdd').addEventListener('click', async () => {
-    const name = document.getElementById('inputName').value.trim();
-    let secret = document.getElementById('inputSecret').value.trim();
-    if (!name || !secret) return;
-    if (secret.startsWith('otpauth://')) {
-        const match = secret.match(/[?&]secret=([^&]+)/);
-        if (match) secret = decodeURIComponent(match[1]);
-    }
-    accounts.push({ name, secret });
-    saveData(); renderAccounts(); autoSync();
-    document.getElementById('inputName').value = '';
-    document.getElementById('inputSecret').value = '';
-    document.getElementById('btnCancelAdd').click();
-});
+// ==========================================
+// THÊM TÀI KHOẢN
+// ==========================================
+const btnAdd = document.getElementById('btnAdd');
+if (btnAdd) {
+    btnAdd.addEventListener('click', () => {
+        document.getElementById('modalAdd').classList.remove('hidden');
+        document.getElementById('modalAdd').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
+    });
+}
 
-document.getElementById('btnSettings').addEventListener('click', () => {
-    document.getElementById('modalSettings').classList.remove('hidden');
-    document.getElementById('modalSettings').classList.add('flex');
-    setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
-});
-document.getElementById('btnCloseSettings').addEventListener('click', () => {
-    document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
-    setTimeout(() => {
-        document.getElementById('modalSettings').classList.add('hidden');
-        document.getElementById('modalSettings').classList.remove('flex');
-    }, 200);
-});
+const btnCancelAdd = document.getElementById('btnCancelAdd');
+if (btnCancelAdd) {
+    btnCancelAdd.addEventListener('click', () => {
+        document.getElementById('modalAddContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalAdd').classList.add('hidden');
+            document.getElementById('modalAdd').classList.remove('flex');
+        }, 200);
+    });
+}
 
-document.getElementById('btnToggleTheme').addEventListener('click', () => {
-    settings.theme = settings.theme === 'light' ? 'dark' : 'light';
-    applyTheme(settings.theme);
-});
-document.getElementById('btnSaveSettings').addEventListener('click', () => {
-    settings.password = document.getElementById('inputPassword').value.trim();
-    saveSettings(); autoSync();
-    document.getElementById('btnCloseSettings').click();
-    alert("Đã lưu cài đặt!");
-});
+const btnCloseModal = document.getElementById('btnCloseModal');
+if (btnCloseModal) {
+    btnCloseModal.addEventListener('click', () => {
+        document.getElementById('btnCancelAdd').click();
+    });
+}
 
-document.getElementById('btnImport').addEventListener('click', () => {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.json';
-    input.onchange = e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = event => {
-            try {
-                const data = JSON.parse(event.target.result);
-                if (data.salt && data.content && !data.entries) { alert("LỖI: File bị MÃ HÓA!"); return; }
-                let extractedAccounts = [];
-                function scanObject(obj) {
-                    if (!obj) return;
-                    if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
-                    if (typeof obj === 'object') {
-                        let name = obj.name || obj.title || obj.issuer || "Tài khoản";
-                        let secret = obj.secret || obj.key || null;
-                        let uri = obj.uri || obj.otpauth || null;
-                        if (!secret && uri && typeof uri === 'string') {
-                            const match = uri.match(/[?&]secret=([^&]+)/);
-                            if (match) secret = decodeURIComponent(match[1]);
+const btnSaveAdd = document.getElementById('btnSaveAdd');
+if (btnSaveAdd) {
+    btnSaveAdd.addEventListener('click', async () => {
+        const name = document.getElementById('inputName').value.trim();
+        let secret = document.getElementById('inputSecret').value.trim();
+        if (!name || !secret) return;
+        if (secret.startsWith('otpauth://')) {
+            const match = secret.match(/[?&]secret=([^&]+)/);
+            if (match) secret = decodeURIComponent(match[1]);
+        }
+        accounts.push({ name, secret });
+        saveData(); renderAccounts(); autoSync();
+        document.getElementById('inputName').value = '';
+        document.getElementById('inputSecret').value = '';
+        document.getElementById('btnCancelAdd').click();
+    });
+}
+
+// ==========================================
+// CÀI ĐẶT
+// ==========================================
+const btnSettings = document.getElementById('btnSettings');
+if (btnSettings) {
+    btnSettings.addEventListener('click', () => {
+        document.getElementById('modalSettings').classList.remove('hidden');
+        document.getElementById('modalSettings').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
+    });
+}
+
+const btnCloseSettings = document.getElementById('btnCloseSettings');
+if (btnCloseSettings) {
+    btnCloseSettings.addEventListener('click', () => {
+        document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalSettings').classList.add('hidden');
+            document.getElementById('modalSettings').classList.remove('flex');
+        }, 200);
+    });
+}
+
+const btnToggleTheme = document.getElementById('btnToggleTheme');
+if (btnToggleTheme) {
+    btnToggleTheme.addEventListener('click', () => {
+        settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+        applyTheme(settings.theme);
+    });
+}
+
+const btnSaveSettings = document.getElementById('btnSaveSettings');
+if (btnSaveSettings) {
+    btnSaveSettings.addEventListener('click', () => {
+        settings.password = document.getElementById('inputPassword').value.trim();
+        saveSettings(); autoSync();
+        document.getElementById('btnCloseSettings').click();
+        alert("Đã lưu cài đặt!");
+    });
+}
+
+// ==========================================
+// IMPORT FILE JSON
+// ==========================================
+const btnImport = document.getElementById('btnImport');
+if (btnImport) {
+    btnImport.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = '.json';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = event => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    if (data.salt && data.content && !data.entries) { alert("LỖI: File bị MÃ HÓA! Hãy xuất dạng Plain text."); return; }
+                    let extractedAccounts = [];
+                    function scanObject(obj) {
+                        if (!obj) return;
+                        if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
+                        if (typeof obj === 'object') {
+                            let name = obj.name || obj.title || obj.issuer || "Tài khoản";
+                            let secret = obj.secret || obj.key || null;
+                            let uri = obj.uri || obj.otpauth || null;
+                            if (!secret && uri && typeof uri === 'string') {
+                                const match = uri.match(/[?&]secret=([^&]+)/);
+                                if (match) secret = decodeURIComponent(match[1]);
+                            }
+                            if (secret && typeof secret === 'string') {
+                                if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name: name, secret: secret });
+                            }
+                            for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
                         }
-                        if (secret && typeof secret === 'string') {
-                            if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name: name, secret: secret });
-                        }
-                        for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
                     }
-                }
-                scanObject(data);
-                let count = 0;
-                if (extractedAccounts.length > 0) {
-                    extractedAccounts.forEach(newAcc => {
-                        if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
-                            accounts.push(newAcc); count++;
-                        }
-                    });
-                    if (count > 0) { saveData(); renderAccounts(); autoSync(); alert(`Import thành công ${count} tài khoản!`); }
-                    else { alert("Tất cả tài khoản đã có sẵn."); }
-                } else { alert("Không tìm thấy mã 2FA."); }
-            } catch (err) { alert("Lỗi đọc file JSON."); }
+                    scanObject(data);
+                    let count = 0;
+                    if (extractedAccounts.length > 0) {
+                        extractedAccounts.forEach(newAcc => {
+                            if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
+                                accounts.push(newAcc); count++;
+                            }
+                        });
+                        if (count > 0) { saveData(); renderAccounts(); autoSync(); alert(`Import thành công ${count} tài khoản!`); }
+                        else { alert("Tất cả tài khoản đã có sẵn."); }
+                    } else { alert("Không tìm thấy mã 2FA."); }
+                } catch (err) { alert("Lỗi đọc file JSON."); }
+            };
+            reader.readAsText(file);
         };
-        reader.readAsText(file);
-    };
-    input.click();
-});
+        input.click();
+    });
+}
+
+// ==========================================
+// MÀN HÌNH KHÓA
+// ==========================================
+const btnUnlock = document.getElementById('btnUnlock');
+if (btnUnlock) {
+    btnUnlock.addEventListener('click', () => {
+        const pass = document.getElementById('unlockPass').value.trim();
+        if (pass === settings.password) {
+            document.getElementById('lockScreen').classList.add('hidden-lock');
+            document.getElementById('unlockPass').value = '';
+        } else {
+            alert("Mật khẩu không chính xác!");
+        }
+    });
+}
+
+const unlockPassInput = document.getElementById('unlockPass');
+if (unlockPassInput) {
+    unlockPassInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('btnUnlock').click();
+    });
+}
