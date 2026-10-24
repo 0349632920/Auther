@@ -20,7 +20,7 @@ function checkLogin() {
 }
 
 // ==========================================
-// THUẬT TOÁN TẠO MÃ OTP
+// THUẬT TOÁN TẠO MÃ OTP (WEB CRYPTO API)
 // ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
@@ -101,7 +101,7 @@ function loadData() {
 function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
 // ==========================================
-// ĐỒNG BỘ & SESSION
+// ĐỒNG BỘ & TẢI DỮ LIỆU TỪ SUPABASE
 // ==========================================
 async function checkUserSession() {
     try {
@@ -110,6 +110,8 @@ async function checkUserSession() {
         
         if (session) {
             currentUser = session.user;
+            
+            // Cập nhật giao diện Profile
             const displayName = currentUser.email.replace('@myauth.local', '');
             const profileEmailEl = document.getElementById('profileEmail');
             if (profileEmailEl) profileEmailEl.textContent = displayName;
@@ -117,21 +119,38 @@ async function checkUserSession() {
             const iconUser = document.getElementById('iconUser');
             if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
 
+            // TỰ ĐỘNG KÉO DỮ LIỆU TỪ MÂY VỀ
             const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
-            if (!error && data && data.accounts) {
-                accounts = data.accounts;
-                saveData(); renderAccounts();
-                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
+            
+            if (!error && data) {
+                if (data.accounts) {
+                    accounts = data.accounts;
+                    saveData(); 
+                    renderAccounts(); 
+                }
+                if (data.settings) { 
+                    settings = data.settings; 
+                    saveSettings(); 
+                    applyTheme(settings.theme); 
+                }
+            } else {
+                accounts = [];
+                renderAccounts();
             }
+        } else {
+            // Nếu chưa đăng nhập, chuyển hướng về trang login
+            window.location.href = "/login";
         }
-    } catch (err) { console.warn("Lỗi session:", err.message); }
+    } catch (err) { 
+        console.warn("Lỗi session:", err.message); 
+    }
 }
 
 async function autoSync() {
     if (!currentUser) return;
     try {
         await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
-    } catch (err) { console.warn("Lỗi đồng bộ:", err.message); }
+    } catch (err) { console.warn("Lỗi đồng bộ ngầm:", err.message); }
 }
 
 // ==========================================
@@ -257,27 +276,38 @@ if (btnCloseProfile) {
 const btnChangePassword = document.getElementById('btnChangePassword');
 if (btnChangePassword) {
     btnChangePassword.addEventListener('click', async () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-        
+        if (!checkLogin()) return;
+
+        const oldPass = document.getElementById('oldPassword').value.trim();
         const newPass = document.getElementById('newPassword').value.trim();
-        if (!newPass || newPass.length < 6) return alert("Mật khẩu phải từ 6 ký tự!");
+        const userEmail = currentUser.email;
+
+        if (!oldPass) return alert("Vui lòng nhập mật khẩu hiện tại!");
+        if (!newPass || newPass.length < 6) return alert("Mật khẩu mới phải từ 6 ký tự trở lên!");
+
         try {
-            const { error } = await db.auth.updateUser({ password: newPass });
-            if (error) throw error;
+            // Xác thực mật khẩu cũ
+            const { error: signInError } = await db.auth.signInWithPassword({ email: userEmail, password: oldPass });
+            if (signInError) return alert("Mật khẩu hiện tại không chính xác!");
+
+            // Đổi mật khẩu mới
+            const { error: updateError } = await db.auth.updateUser({ password: newPass });
+            if (updateError) throw updateError;
+
             alert("Đổi mật khẩu thành công!");
+            document.getElementById('oldPassword').value = '';
             document.getElementById('newPassword').value = '';
         } catch (err) { alert("Lỗi đổi mật khẩu: " + err.message); }
     });
 }
 
 // ==========================================
-// XỬ LÝ ĐĂNG XUẤT (CÓ XÁC NHẬN)
+// XỬ LÝ ĐĂNG XUẤT (XÓA SẠCH DỮ LIỆU)
 // ==========================================
 const btnLogout = document.getElementById('btnLogout');
 if (btnLogout) {
     btnLogout.addEventListener('click', () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+        if (!checkLogin()) return;
         const modalLogout = document.getElementById('modalLogout');
         modalLogout.classList.remove('hidden');
         modalLogout.classList.add('flex');
@@ -300,8 +330,20 @@ if (btnCancelLogout) {
 const btnConfirmLogout = document.getElementById('btnConfirmLogout');
 if (btnConfirmLogout) {
     btnConfirmLogout.addEventListener('click', async () => {
+        // 1. Đăng xuất khỏi Supabase
         await db.auth.signOut();
         currentUser = null;
+        
+        // 2. XÓA TOÀN BỘ DỮ LIỆU LƯU TRÊN MÁY
+        localStorage.removeItem('proton_accounts');
+        localStorage.removeItem('proton_settings');
+        sessionStorage.clear();
+        
+        // 3. Xóa mảng trong bộ nhớ
+        accounts = [];
+        settings = { theme: 'light', password: '' }; 
+        
+        // 4. Tải lại trang
         document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
         setTimeout(() => {
             const modalLogout = document.getElementById('modalLogout');
@@ -316,8 +358,7 @@ if (btnConfirmLogout) {
 // CÁC SỰ KIỆN XÓA, THÊM, CÀI ĐẶT KHÁC
 // ==========================================
 window.openDeleteModal = function(index) {
-    if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+    if (!checkLogin()) return;
     deleteIndex = index;
     document.getElementById('deleteName').textContent = accounts[index].name;
     document.getElementById('modalDelete').classList.remove('hidden');
@@ -339,8 +380,7 @@ if (btnCancelDelete) {
 const btnConfirmDelete = document.getElementById('btnConfirmDelete');
 if (btnConfirmDelete) {
     btnConfirmDelete.addEventListener('click', () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+        if (!checkLogin()) return;
         if (deleteIndex > -1) {
             accounts.splice(deleteIndex, 1); 
             saveData(); renderAccounts(); autoSync(); 
@@ -357,8 +397,7 @@ if (btnConfirmDelete) {
 const btnAdd = document.getElementById('btnAdd');
 if (btnAdd) {
     btnAdd.addEventListener('click', () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+        if (!checkLogin()) return;
         document.getElementById('modalAdd').classList.remove('hidden');
         document.getElementById('modalAdd').classList.add('flex');
         setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
@@ -386,8 +425,7 @@ if (btnCloseModal) {
 const btnSaveAdd = document.getElementById('btnSaveAdd');
 if (btnSaveAdd) {
     btnSaveAdd.addEventListener('click', async () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+        if (!checkLogin()) return;
         const name = document.getElementById('inputName').value.trim();
         let secret = document.getElementById('inputSecret').value.trim();
         if (!name || !secret) return;
@@ -406,8 +444,7 @@ if (btnSaveAdd) {
 const btnSettings = document.getElementById('btnSettings');
 if (btnSettings) {
     btnSettings.addEventListener('click', () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+        if (!checkLogin()) return;
         document.getElementById('modalSettings').classList.remove('hidden');
         document.getElementById('modalSettings').classList.add('flex');
         setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
@@ -436,8 +473,7 @@ if (btnToggleTheme) {
 const btnSaveSettings = document.getElementById('btnSaveSettings');
 if (btnSaveSettings) {
     btnSaveSettings.addEventListener('click', () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+        if (!checkLogin()) return;
         settings.password = document.getElementById('inputPassword').value.trim();
         saveSettings(); autoSync();
         document.getElementById('btnCloseSettings').click();
@@ -451,8 +487,7 @@ if (btnSaveSettings) {
 const btnImport = document.getElementById('btnImport');
 if (btnImport) {
     btnImport.addEventListener('click', () => {
-        if (!checkLogin()) return; // Kiểm tra đăng nhập
-
+        if (!checkLogin()) return;
         const input = document.createElement('input');
         input.type = 'file'; input.accept = '.json';
         input.onchange = e => {
