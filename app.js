@@ -5,7 +5,7 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let accounts = [];
 let settings = { theme: 'light', password: '' };
 let currentUser = null;
-let deleteIndex = -1; // Lưu vị trí tài khoản đang muốn xóa
+let deleteIndex = -1;
 
 // Thuật toán OTP
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -84,21 +84,30 @@ function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(acc
 
 // Đồng bộ ngầm
 async function checkUserSession() {
-    const { data: { session } } = await db.auth.getSession();
-    if (session) {
-        currentUser = session.user;
-        const { data } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
-        if (data && data.accounts) {
-            accounts = data.accounts;
-            saveData(); renderAccounts();
-            if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
+    try {
+        const { data: { session }, error: sessionError } = await db.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (session) {
+            currentUser = session.user;
+            const { data, error } = await db.from('user_data').select('*').eq('user_id', currentUser.id).single();
+            if (!error && data && data.accounts) {
+                accounts = data.accounts;
+                saveData(); renderAccounts();
+                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
+            }
         }
+    } catch (err) {
+        console.warn("Chưa đăng nhập hoặc lỗi session:", err.message);
     }
 }
 
 async function autoSync() {
     if (!currentUser) return;
-    await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
+    try {
+        await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
+    } catch (err) {
+        console.warn("Lỗi đồng bộ ngầm:", err.message);
+    }
 }
 
 // Render danh sách
@@ -109,24 +118,20 @@ function renderAccounts() {
     
     accounts.forEach((account, index) => {
         const card = document.createElement('div');
-        // Thêm relative để định vị nút xóa
         card.className = `relative card-fade-in bg-white dark:bg-darkcard rounded-[20px] p-5 shadow-soft hover:shadow-hover border border-gray-100 dark:border-gray-800 cursor-pointer group flex flex-col justify-between min-h-[145px] card-anim`;
         card.style.animationDelay = `${index * 0.05}s`;
         
-        // Bấm vào thẻ để copy
         card.onclick = (e) => {
-            if (e.target.closest('.btn-delete')) return; // Nếu bấm vào nút xóa thì không copy
+            if (e.target.closest('.btn-delete')) return; 
             card.style.transform = 'scale(0.96)';
             setTimeout(() => { card.style.transform = ''; }, 150);
             copyCode(account.secret);
         };
         
         card.innerHTML = `
-            <!-- Nút Xóa (Thùng rác) -->
             <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors z-10" onclick="openDeleteModal(${index})" title="Xóa tài khoản">
                 <i class="fas fa-trash-alt text-sm"></i>
             </button>
-
             <div class="flex items-start justify-between pr-8">
                 <div class="flex items-center gap-3.5">
                     <div class="w-11 h-11 rounded-2xl bg-gray-50 dark:bg-gray-800 text-proton flex items-center justify-center font-bold text-xl border border-gray-100 dark:border-gray-700 group-hover:bg-proton group-hover:text-white transition-colors duration-300">${account.name.charAt(0).toUpperCase()}</div>
@@ -190,9 +195,7 @@ function toggleEmptyState() {
     else emptyState.classList.add('hidden');
 }
 
-// ==========================================
-// XỬ LÝ XÓA TÀI KHOẢN
-// ==========================================
+// Xử lý Xóa
 window.openDeleteModal = function(index) {
     deleteIndex = index;
     document.getElementById('deleteName').textContent = accounts[index].name;
@@ -211,25 +214,18 @@ document.getElementById('btnCancelDelete').addEventListener('click', () => {
 
 document.getElementById('btnConfirmDelete').addEventListener('click', () => {
     if (deleteIndex > -1) {
-        accounts.splice(deleteIndex, 1); // Xóa khỏi mảng
-        saveData(); // Lưu vào local
-        renderAccounts(); // Vẽ lại UI
-        autoSync(); // Đồng bộ lên mây
-        
-        // Đóng modal
+        accounts.splice(deleteIndex, 1); 
+        saveData(); renderAccounts(); autoSync(); 
         document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
         setTimeout(() => {
             document.getElementById('modalDelete').classList.add('hidden');
             document.getElementById('modalDelete').classList.remove('flex');
         }, 200);
-        
         deleteIndex = -1;
     }
 });
 
-// ==========================================
-// CÁC SỰ KIỆN KHÁC (Add, Settings, Import)
-// ==========================================
+// Các sự kiện khác
 document.getElementById('btnAdd').addEventListener('click', () => {
     document.getElementById('modalAdd').classList.remove('hidden');
     document.getElementById('modalAdd').classList.add('flex');
@@ -282,7 +278,6 @@ document.getElementById('btnSaveSettings').addEventListener('click', () => {
     alert("Đã lưu cài đặt!");
 });
 
-// Import JSON
 document.getElementById('btnImport').addEventListener('click', () => {
     const input = document.createElement('input');
     input.type = 'file'; input.accept = '.json';
@@ -330,7 +325,6 @@ document.getElementById('btnImport').addEventListener('click', () => {
     input.click();
 });
 
-// Đăng xuất
 document.getElementById('btnLogout')?.addEventListener('click', async () => {
     await db.auth.signOut();
     currentUser = null;
