@@ -13,6 +13,18 @@ let autoLockTimer;
 let html5QrCode = null;
 
 // ==========================================
+// TÍNH NĂNG GOOGLE LOGIN: LẮNG NGHE SỰ KIỆN
+// ==========================================
+db.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+        // Nếu vừa đăng nhập bằng Google thành công, tải lại trang để lấy dữ liệu
+        if (window.location.pathname === '/') {
+            window.location.reload();
+        }
+    }
+});
+
+// ==========================================
 // CÁC HÀM TIỆN ÍCH
 // ==========================================
 function showNotification(message, type = 'error') {
@@ -47,16 +59,16 @@ function resetAutoLock() {
     clearTimeout(autoLockTimer);
     autoLockTimer = setTimeout(() => {
         isAppLocked = true;
-        document.getElementById('lockScreen').classList.remove('hidden-lock');
+        document.getElementById('lockScreen')?.classList.remove('hidden-lock');
         updateCodes();
-    }, 5 * 60 * 1000); // 5 phút
+    }, 5 * 60 * 1000); // 5 phút không tương tác
 }
 
 document.addEventListener('mousemove', resetAutoLock);
 document.addEventListener('keydown', resetAutoLock);
 
 // ==========================================
-// TÍNH NĂNG 3: MÃ HÓA DỮ LIỆU LOCAL (CRYPTOJS)
+// TÍNH NĂNG 3: MÃ HÓA DỮ LIỆU LOCAL
 // ==========================================
 function encryptData(text, password) {
     if (!password) return text; 
@@ -79,16 +91,19 @@ function loadSettings() {
             applyTheme(settings.theme);
             if (settings.password) {
                 isAppLocked = true;
-                document.getElementById('lockScreen').classList.remove('hidden-lock');
+                document.getElementById('lockScreen')?.classList.remove('hidden-lock');
             }
         } catch(e) {}
     }
 }
+
 function saveSettings() { localStorage.setItem('proton_settings', JSON.stringify(settings)); }
+
 function applyTheme(theme) {
     if (theme === 'dark') document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
 }
+
 function loadData() {
     const saved = localStorage.getItem('proton_accounts');
     if (saved) {
@@ -103,6 +118,7 @@ function loadData() {
         renderAccounts();
     } else toggleEmptyState();
 }
+
 function saveData() {
     const dataStr = JSON.stringify(accounts);
     const encrypted = encryptData(dataStr, settings.password);
@@ -126,11 +142,13 @@ function base32Decode(base32) {
     }
     return output.subarray(0, index);
 }
+
 async function hmacSha1(key, message) {
     const cryptoKey = await window.crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
     const signature = await window.crypto.subtle.sign('HMAC', cryptoKey, message);
     return new Uint8Array(signature);
 }
+
 async function generateOTP(secret, offset = 0) {
     try {
         let cleanSecret = secret.toUpperCase().replace(/[^A-Z2-7]/g, '');
@@ -166,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // TÍNH NĂNG 4: KÉO THẢ
+    // TÍNH NĂNG 4: KÉO THẢ (SORTABLE)
     new Sortable(document.getElementById('sortableGrid'), {
         animation: 150,
         ghostClass: 'opacity-50',
@@ -187,16 +205,31 @@ async function checkUserSession() {
         const { data: { session } } = await db.auth.getSession();
         if (session) {
             currentUser = session.user;
-            document.getElementById('profileEmail').textContent = currentUser.email.replace('@myauth.local', '');
-            document.getElementById('iconUser').className = "fas fa-user-circle text-roblox text-xl";
+            // Hiển thị tên (nếu là Google thì hiển thị email Google)
+            const displayName = currentUser.email.replace('@myauth.local', '');
+            const profileEmailEl = document.getElementById('profileEmail');
+            if (profileEmailEl) profileEmailEl.textContent = displayName;
+            
+            const iconUser = document.getElementById('iconUser');
+            if (iconUser) iconUser.className = "fas fa-user-circle text-roblox text-xl";
 
             const { data } = await db.from('user_data').select('*').eq('user_id', currentUser.id).maybeSingle();
             if (data) {
-                if (data.accounts && data.accounts.length > 0) { accounts = data.accounts; saveData(); renderAccounts(); }
-                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
+                if (data.accounts && data.accounts.length > 0) { 
+                    accounts = data.accounts; 
+                    saveData(); 
+                    renderAccounts(); 
+                }
+                if (data.settings) { 
+                    settings = data.settings; 
+                    saveSettings(); 
+                    applyTheme(settings.theme); 
+                }
             }
             isCloudLoaded = true;
-        } else { window.location.href = "/login"; }
+        } else { 
+            window.location.href = "/login"; 
+        }
     } catch (err) { console.warn("Lỗi session:", err.message); }
 }
 
