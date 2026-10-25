@@ -3,12 +3,18 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let accounts = [];
-let settings = { theme: 'light', password: '', autoLock: true }; 
+let settings = { theme: 'light', password: '' };
 let currentUser = null;
 let deleteIndex = -1;
 let isCloudLoaded = false;
 let isAppLocked = false;
+let currentShareSecret = null;
+let autoLockTimer;
+let html5QrCode = null;
 
+// ==========================================
+// CÁC HÀM TIỆN ÍCH
+// ==========================================
 function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
@@ -26,14 +32,86 @@ function showNotification(message, type = 'error') {
 
 function checkLogin() {
     if (!currentUser) {
-        showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
+        showNotification("Vui lòng đăng nhập!", "error");
         setTimeout(() => { window.location.href = "/login"; }, 1000);
         return false;
     }
     return true;
 }
 
-// Thuật toán OTP
+// ==========================================
+// TÍNH NĂNG 6: TỰ ĐỘNG KHÓA (IDLE TIMEOUT)
+// ==========================================
+function resetAutoLock() {
+    if (!settings.password || isAppLocked) return;
+    clearTimeout(autoLockTimer);
+    autoLockTimer = setTimeout(() => {
+        isAppLocked = true;
+        document.getElementById('lockScreen').classList.remove('hidden-lock');
+        updateCodes();
+    }, 5 * 60 * 1000); // 5 phút
+}
+
+document.addEventListener('mousemove', resetAutoLock);
+document.addEventListener('keydown', resetAutoLock);
+
+// ==========================================
+// TÍNH NĂNG 3: MÃ HÓA DỮ LIỆU LOCAL (CRYPTOJS)
+// ==========================================
+function encryptData(text, password) {
+    if (!password) return text; 
+    return CryptoJS.AES.encrypt(text, password).toString();
+}
+
+function decryptData(ciphertext, password) {
+    if (!password) return ciphertext;
+    try {
+        const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+        return bytes.toString(CryptoJS.enc.Utf8);
+    } catch (e) { return null; }
+}
+
+function loadSettings() {
+    const saved = localStorage.getItem('proton_settings');
+    if (saved) {
+        try {
+            settings = JSON.parse(saved);
+            applyTheme(settings.theme);
+            if (settings.password) {
+                isAppLocked = true;
+                document.getElementById('lockScreen').classList.remove('hidden-lock');
+            }
+        } catch(e) {}
+    }
+}
+function saveSettings() { localStorage.setItem('proton_settings', JSON.stringify(settings)); }
+function applyTheme(theme) {
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+}
+function loadData() {
+    const saved = localStorage.getItem('proton_accounts');
+    if (saved) {
+        try {
+            let decrypted = saved;
+            if (settings.password) {
+                decrypted = decryptData(saved, settings.password);
+                if (!decrypted) { accounts = []; return; }
+            }
+            accounts = JSON.parse(decrypted);
+        } catch(e) { accounts = []; }
+        renderAccounts();
+    } else toggleEmptyState();
+}
+function saveData() {
+    const dataStr = JSON.stringify(accounts);
+    const encrypted = encryptData(dataStr, settings.password);
+    localStorage.setItem('proton_accounts', encrypted);
+}
+
+// ==========================================
+// THUẬT TOÁN OTP & ĐỒNG BỘ
+// ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
@@ -74,52 +152,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadData();
     setInterval(updateCodes, 1000);
     await checkUserSession();
-    setupEventListeners();
+    
+    // TÍNH NĂNG 5: NHẬN LINK CHIA SẺ
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareSecret = urlParams.get('share_secret');
+    const shareName = urlParams.get('share_name');
+    if (shareSecret && shareName) {
+        if (confirm(`Bạn có muốn thêm tài khoản "${shareName}" từ link chia sẻ không?`)) {
+            accounts.push({ name: shareName, secret: atob(shareSecret) });
+            saveData(); renderAccounts(); autoSync();
+            showNotification("Đã thêm tài khoản từ link chia sẻ!", "success");
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // TÍNH NĂNG 4: KÉO THẢ
+    new Sortable(document.getElementById('sortableGrid'), {
+        animation: 150,
+        ghostClass: 'opacity-50',
+        onEnd: function (evt) {
+            const item = accounts.splice(evt.oldIndex, 1)[0];
+            accounts.splice(evt.newIndex, 0, item);
+            saveData(); autoSync();
+            showNotification("Đã sắp xếp lại!", "success");
+        }
+    });
 });
 
 const accountList = document.getElementById('sortableGrid');
 const emptyState = document.getElementById('emptyState');
-
-function loadSettings() {
-    const saved = localStorage.getItem('proton_settings');
-    if (saved) {
-        try {
-            settings = JSON.parse(saved);
-            if (settings.autoLock === undefined) settings.autoLock = true; 
-            applyTheme(settings.theme);
-            updateAutoLockUI();
-            if (settings.password) {
-                isAppLocked = true;
-                if (document.getElementById('lockScreen')) {
-                    document.getElementById('lockScreen').classList.remove('hidden-lock');
-                }
-            }
-        } catch(e) {}
-    }
-}
-function saveSettings() { localStorage.setItem('proton_settings', JSON.stringify(settings)); }
-function applyTheme(theme) {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-}
-function updateAutoLockUI() {
-    const btn = document.getElementById('btnToggleAutoLock');
-    const thumb = document.getElementById('autoLockThumb');
-    if (!btn || !thumb) return;
-    if (settings.autoLock) {
-        btn.classList.add('bg-roblox'); btn.classList.remove('bg-gray-300'); thumb.style.transform = 'translateX(24px)';
-    } else {
-        btn.classList.remove('bg-roblox'); btn.classList.add('bg-gray-300'); thumb.style.transform = 'translateX(0)';
-    }
-}
-function loadData() {
-    const saved = localStorage.getItem('proton_accounts');
-    if (saved) {
-        try { accounts = JSON.parse(saved); } catch(e) { accounts = []; }
-        renderAccounts();
-    } else toggleEmptyState();
-}
-function saveData() { localStorage.setItem('proton_accounts', JSON.stringify(accounts)); }
 
 async function checkUserSession() {
     try {
@@ -132,7 +193,7 @@ async function checkUserSession() {
             const { data } = await db.from('user_data').select('*').eq('user_id', currentUser.id).maybeSingle();
             if (data) {
                 if (data.accounts && data.accounts.length > 0) { accounts = data.accounts; saveData(); renderAccounts(); }
-                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); updateAutoLockUI(); }
+                if (data.settings) { settings = data.settings; saveSettings(); applyTheme(settings.theme); }
             }
             isCloudLoaded = true;
         } else { window.location.href = "/login"; }
@@ -155,26 +216,29 @@ function renderAccounts() {
         card.style.animationDelay = `${index * 0.05}s`;
         
         card.onclick = (e) => {
-            if (e.target.closest('.btn-delete')) return; 
-            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để copy mã!", "error");
+            if (e.target.closest('.btn-delete') || e.target.closest('.btn-share')) return; 
+            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
             card.style.transform = 'scale(0.96)';
             setTimeout(() => { card.style.transform = ''; }, 150);
             copyCode(account.secret);
         };
         
         card.innerHTML = `
-            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 rounded-full z-10" onclick="openDeleteModal(${index})"><i class="fas fa-trash-alt text-sm"></i></button>
-            <div class="flex items-start justify-between pr-8">
+            <div class="absolute top-4 right-4 flex gap-1 z-10">
+                <button class="btn-share w-8 h-8 flex items-center justify-center text-gray-300 hover:text-roblox rounded-full" onclick="openShareModal('${account.secret}', '${account.name}')" title="Chia sẻ">
+                    <i class="fas fa-share-alt text-sm"></i>
+                </button>
+                <button class="btn-delete w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 rounded-full" onclick="openDeleteModal(${index})" title="Xóa">
+                    <i class="fas fa-trash-alt text-sm"></i>
+                </button>
+            </div>
+            <div class="flex items-start justify-between pr-16">
                 <div class="flex items-center gap-3.5">
                     <div class="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 text-roblox flex items-center justify-center font-bold text-xl border border-gray-200 dark:border-gray-700 group-hover:bg-roblox group-hover:text-white transition-colors">${account.name.charAt(0).toUpperCase()}</div>
                     <div>
                         <h3 class="font-bold text-gray-800 dark:text-gray-100 text-[17px] truncate max-w-[130px]">${account.name}</h3>
                         <p class="text-xs text-gray-400 mt-1">2FA Code</p>
                     </div>
-                </div>
-                <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
-                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36"><path class="text-gray-200 dark:text-gray-600" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="text-roblox arc" stroke-dasharray="100, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /></svg>
-                    <span class="absolute text-[10px] font-bold text-gray-600 dark:text-gray-300 sec-label">30</span>
                 </div>
             </div>
             <div class="mt-5 flex items-end justify-between">
@@ -220,7 +284,7 @@ async function updateCodes() {
 }
 
 async function copyCode(secret) {
-    if (isAppLocked) return;
+    if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
     try {
         const code = await generateOTP(secret);
         if (code !== "Error") {
@@ -235,237 +299,319 @@ function toggleEmptyState() {
     else emptyState.classList.add('hidden');
 }
 
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden && settings.autoLock && settings.password) {
-        isAppLocked = true;
-        document.getElementById('lockScreen')?.classList.remove('hidden-lock');
-        document.getElementById('unlockPass').value = '';
-        updateCodes();
+// ==========================================
+// TÍNH NĂNG 1: QUÉT MÃ QR
+// ==========================================
+document.getElementById('btnScanQR')?.addEventListener('click', () => {
+    document.getElementById('modalQR').classList.remove('hidden');
+    document.getElementById('modalQR').classList.add('flex');
+    
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+            html5QrCode.stop().then(() => {
+                document.getElementById('modalQR').classList.add('hidden');
+                document.getElementById('modalQR').classList.remove('flex');
+                try {
+                    const url = new URL(decodedText);
+                    const secret = url.searchParams.get("secret");
+                    const issuer = url.searchParams.get("issuer") || url.pathname.split("/").pop();
+                    if (secret) {
+                        document.getElementById('inputName').value = issuer;
+                        document.getElementById('inputSecret').value = secret;
+                        showNotification("Đã quét mã QR thành công!", "success");
+                    }
+                } catch (e) { showNotification("Mã QR không hợp lệ!", "error"); }
+            });
+        }
+    ).catch(err => {
+        showNotification("Không thể bật Camera! Hãy cấp quyền.", "error");
+        document.getElementById('modalQR').classList.add('hidden');
+        document.getElementById('modalQR').classList.remove('flex');
+    });
+});
+
+document.getElementById('btnCloseQR')?.addEventListener('click', () => {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            document.getElementById('modalQR').classList.add('hidden');
+            document.getElementById('modalQR').classList.remove('flex');
+        });
+    } else {
+        document.getElementById('modalQR').classList.add('hidden');
+        document.getElementById('modalQR').classList.remove('flex');
     }
 });
 
-function setupEventListeners() {
-    document.getElementById('btnAdd')?.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-        document.getElementById('modalAdd').classList.remove('hidden');
-        document.getElementById('modalAdd').classList.add('flex');
-        setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
-    });
+// ==========================================
+// TÍNH NĂNG 2: XUẤT FILE (EXPORT)
+// ==========================================
+document.getElementById('btnExport')?.addEventListener('click', () => {
+    if (!checkLogin()) return;
+    if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
+    
+    const dataStr = JSON.stringify(accounts, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `authenticator_backup_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showNotification("Đã xuất file JSON thành công!", "success");
+});
 
-    document.getElementById('btnCancelAdd')?.addEventListener('click', () => {
-        document.getElementById('modalAddContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            document.getElementById('modalAdd').classList.add('hidden');
-            document.getElementById('modalAdd').classList.remove('flex');
-        }, 200);
-    });
+// ==========================================
+// TÍNH NĂNG 5: CHIA SẺ
+// ==========================================
+window.openShareModal = function(secret, name) {
+    if (!checkLogin()) return;
+    currentShareSecret = secret;
+    const encodedSecret = btoa(secret);
+    const encodedName = encodeURIComponent(name);
+    const shareUrl = `${window.location.origin}/?share_secret=${encodedSecret}&share_name=${encodedName}`;
+    document.getElementById('shareLink').value = shareUrl;
+    document.getElementById('modalShare').classList.remove('hidden');
+    document.getElementById('modalShare').classList.add('flex');
+}
 
-    document.getElementById('btnCloseModal')?.addEventListener('click', () => {
-        document.getElementById('btnCancelAdd')?.click();
-    });
+document.getElementById('btnCloseShare')?.addEventListener('click', () => {
+    document.getElementById('modalShare').classList.add('hidden');
+    document.getElementById('modalShare').classList.remove('flex');
+});
 
-    document.getElementById('btnSaveAdd')?.addEventListener('click', async () => {
-        if (!checkLogin()) return;
-        const name = document.getElementById('inputName').value.trim();
-        let secret = document.getElementById('inputSecret').value.trim();
-        if (!name || !secret) return showNotification("Vui lòng nhập đủ thông tin!", "error");
-        if (secret.startsWith('otpauth://')) {
-            const match = secret.match(/[?&]secret=([^&]+)/);
-            if (match) secret = decodeURIComponent(match[1]);
-        }
-        accounts.push({ name, secret });
-        saveData(); renderAccounts(); autoSync();
-        showNotification("Đã thêm tài khoản!", "success");
-        document.getElementById('inputName').value = '';
-        document.getElementById('inputSecret').value = '';
-        document.getElementById('btnCancelAdd')?.click();
+document.getElementById('btnCopyShare')?.addEventListener('click', () => {
+    const link = document.getElementById('shareLink').value;
+    navigator.clipboard.writeText(link).then(() => {
+        showNotification("Đã copy link chia sẻ!", "success");
+        document.getElementById('modalShare').classList.add('hidden');
+        document.getElementById('modalShare').classList.remove('flex');
     });
+});
 
-    document.getElementById('btnUser')?.addEventListener('click', () => {
-        if (currentUser) {
-            document.getElementById('modalProfile').classList.remove('hidden');
-            document.getElementById('modalProfile').classList.add('flex');
-            setTimeout(() => { document.getElementById('modalProfileContent').style.transform = 'scale(1)'; }, 50);
-        } else { window.location.href = "/login"; }
-    });
+// ==========================================
+// CÁC SỰ KIỆN KHÁC (Thêm, Xóa, Cài đặt...)
+// ==========================================
+document.getElementById('btnAdd')?.addEventListener('click', () => {
+    if (!checkLogin() || isAppLocked) return;
+    document.getElementById('modalAdd').classList.remove('hidden');
+    document.getElementById('modalAdd').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalAddContent').style.transform = 'scale(1)'; }, 50);
+});
 
-    document.getElementById('btnCloseProfile')?.addEventListener('click', () => {
-        document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            document.getElementById('modalProfile').classList.add('hidden');
-            document.getElementById('modalProfile').classList.remove('flex');
-        }, 200);
-    });
+document.getElementById('btnCancelAdd')?.addEventListener('click', () => {
+    document.getElementById('modalAddContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalAdd').classList.add('hidden');
+        document.getElementById('modalAdd').classList.remove('flex');
+    }, 200);
+});
 
-    document.getElementById('btnImport')?.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-        const input = document.createElement('input');
-        input.type = 'file'; input.accept = '.json';
-        input.onchange = e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = event => {
-                try {
-                    const data = JSON.parse(event.target.result);
-                    let extractedAccounts = [];
-                    function scanObject(obj) {
-                        if (!obj) return;
-                        if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
-                        if (typeof obj === 'object') {
-                            let name = obj.name || obj.title || obj.issuer || "Tài khoản";
-                            let secret = obj.secret || obj.key || null;
-                            let uri = obj.uri || obj.otpauth || null;
-                            if (!secret && uri && typeof uri === 'string') {
-                                const match = uri.match(/[?&]secret=([^&]+)/);
-                                if (match) secret = decodeURIComponent(match[1]);
-                            }
-                            if (secret && typeof secret === 'string') {
-                                if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name, secret });
-                            }
-                            for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
-                        }
-                    }
-                    scanObject(data);
-                    let count = 0;
-                    if (extractedAccounts.length > 0) {
-                        extractedAccounts.forEach(newAcc => {
-                            if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
-                                accounts.push(newAcc); count++;
-                            }
-                        });
-                        if (count > 0) { saveData(); renderAccounts(); autoSync(); showNotification(`Import thành công ${count} tài khoản!`, "success"); }
-                        else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
-                    } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
-                } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
-            };
-            reader.readAsText(file);
-        };
-        input.click();
-    });
-
-    document.getElementById('btnSettings')?.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-        document.getElementById('inputPassword').value = settings.password;
-        updateAutoLockUI();
-        document.getElementById('modalSettings').classList.remove('hidden');
-        document.getElementById('modalSettings').classList.add('flex');
-        setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
-    });
-
-    document.getElementById('btnCloseSettings')?.addEventListener('click', () => {
-        document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            document.getElementById('modalSettings').classList.add('hidden');
-            document.getElementById('modalSettings').classList.remove('flex');
-        }, 200);
-    });
-
-    document.getElementById('btnToggleTheme')?.addEventListener('click', () => {
-        settings.theme = settings.theme === 'light' ? 'dark' : 'light';
-        applyTheme(settings.theme);
-    });
-
-    document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
-        settings.autoLock = !settings.autoLock;
-        updateAutoLockUI();
-    });
-
-    document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
-        settings.password = document.getElementById('inputPassword').value.trim();
-        saveSettings(); autoSync();
-        document.getElementById('btnCloseSettings')?.click();
-        showNotification("Đã lưu cài đặt!", "success");
-    });
-
-    document.getElementById('btnLogout')?.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        document.getElementById('modalLogout').classList.remove('hidden');
-        document.getElementById('modalLogout').classList.add('flex');
-        setTimeout(() => { document.getElementById('modalLogoutContent').style.transform = 'scale(1)'; }, 50);
-    });
-
-    document.getElementById('btnCancelLogout')?.addEventListener('click', () => {
-        document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            document.getElementById('modalLogout').classList.add('hidden');
-            document.getElementById('modalLogout').classList.remove('flex');
-        }, 200);
-    });
-
-    document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
-        await db.auth.signOut();
-        currentUser = null;
-        localStorage.removeItem('proton_accounts');
-        localStorage.removeItem('proton_settings');
-        sessionStorage.clear();
-        window.location.href = "/login";
-    });
-
-    window.openDeleteModal = function(index) {
-        if (!checkLogin() || isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-        deleteIndex = index;
-        document.getElementById('deleteName').textContent = accounts[index].name;
-        document.getElementById('modalDelete').classList.remove('hidden');
-        document.getElementById('modalDelete').classList.add('flex');
-        setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
+document.getElementById('btnSaveAdd')?.addEventListener('click', async () => {
+    if (!checkLogin()) return;
+    const name = document.getElementById('inputName').value.trim();
+    let secret = document.getElementById('inputSecret').value.trim();
+    if (!name || !secret) return showNotification("Vui lòng nhập đủ thông tin!", "error");
+    if (secret.startsWith('otpauth://')) {
+        const match = secret.match(/[?&]secret=([^&]+)/);
+        if (match) secret = decodeURIComponent(match[1]);
     }
+    accounts.push({ name, secret });
+    saveData(); renderAccounts(); autoSync();
+    showNotification("Đã thêm tài khoản!", "success");
+    document.getElementById('inputName').value = '';
+    document.getElementById('inputSecret').value = '';
+    document.getElementById('btnCancelAdd').click();
+});
 
-    document.getElementById('btnCancelDelete')?.addEventListener('click', () => {
+document.getElementById('btnUser')?.addEventListener('click', () => {
+    if (currentUser) {
+        document.getElementById('modalProfile').classList.remove('hidden');
+        document.getElementById('modalProfile').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalProfileContent').style.transform = 'scale(1)'; }, 50);
+    } else { window.location.href = "/login"; }
+});
+
+document.getElementById('btnCloseProfile')?.addEventListener('click', () => {
+    document.getElementById('modalProfileContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalProfile').classList.add('hidden');
+        document.getElementById('modalProfile').classList.remove('flex');
+    }, 200);
+});
+
+document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
+    if (!checkLogin()) return;
+    const oldPass = document.getElementById('oldPassword').value.trim();
+    const newPass = document.getElementById('newPassword').value.trim();
+    if (!oldPass) return showNotification("Vui lòng nhập mật khẩu hiện tại!", "error");
+    if (!newPass || newPass.length < 6) return showNotification("Mật khẩu mới phải từ 6 ký tự!", "error");
+    try {
+        const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
+        if (signInError) return showNotification("Mật khẩu hiện tại không chính xác!", "error");
+        const { error: updateError } = await db.auth.updateUser({ password: newPass });
+        if (updateError) throw updateError;
+        showNotification("Đổi mật khẩu thành công!", "success");
+        document.getElementById('oldPassword').value = '';
+        document.getElementById('newPassword').value = '';
+    } catch (err) { showNotification("Lỗi đổi mật khẩu!", "error"); }
+});
+
+document.getElementById('btnLogout')?.addEventListener('click', () => {
+    if (!checkLogin()) return;
+    document.getElementById('modalLogout').classList.remove('hidden');
+    document.getElementById('modalLogout').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalLogoutContent').style.transform = 'scale(1)'; }, 50);
+});
+
+document.getElementById('btnCancelLogout')?.addEventListener('click', () => {
+    document.getElementById('modalLogoutContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalLogout').classList.add('hidden');
+        document.getElementById('modalLogout').classList.remove('flex');
+    }, 200);
+});
+
+document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
+    await db.auth.signOut();
+    currentUser = null;
+    localStorage.removeItem('proton_accounts');
+    localStorage.removeItem('proton_settings');
+    sessionStorage.clear();
+    window.location.href = "/login";
+});
+
+window.openDeleteModal = function(index) {
+    if (!checkLogin() || isAppLocked) return;
+    deleteIndex = index;
+    document.getElementById('deleteName').textContent = accounts[index].name;
+    document.getElementById('modalDelete').classList.remove('hidden');
+    document.getElementById('modalDelete').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalDeleteContent').style.transform = 'scale(1)'; }, 50);
+}
+
+document.getElementById('btnCancelDelete')?.addEventListener('click', () => {
+    document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalDelete').classList.add('hidden');
+        document.getElementById('modalDelete').classList.remove('flex');
+    }, 200);
+});
+
+document.getElementById('btnConfirmDelete')?.addEventListener('click', () => {
+    if (deleteIndex > -1) {
+        accounts.splice(deleteIndex, 1); 
+        saveData(); renderAccounts(); autoSync(); 
+        showNotification("Đã xóa tài khoản!", "success");
         document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
         setTimeout(() => {
             document.getElementById('modalDelete').classList.add('hidden');
             document.getElementById('modalDelete').classList.remove('flex');
         }, 200);
-    });
+        deleteIndex = -1;
+    }
+});
 
-    document.getElementById('btnConfirmDelete')?.addEventListener('click', () => {
-        if (deleteIndex > -1) {
-            accounts.splice(deleteIndex, 1); 
-            saveData(); renderAccounts(); autoSync(); 
-            showNotification("Đã xóa tài khoản!", "success");
-            document.getElementById('modalDeleteContent').style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                document.getElementById('modalDelete').classList.add('hidden');
-                document.getElementById('modalDelete').classList.remove('flex');
-            }, 200);
-            deleteIndex = -1;
-        }
-    });
+document.getElementById('btnSettings')?.addEventListener('click', () => {
+    if (!checkLogin() || isAppLocked) return;
+    document.getElementById('modalSettings').classList.remove('hidden');
+    document.getElementById('modalSettings').classList.add('flex');
+    setTimeout(() => { document.getElementById('modalSettingsContent').style.transform = 'scale(1)'; }, 50);
+});
 
-    document.getElementById('btnUnlock')?.addEventListener('click', () => {
-        const pass = document.getElementById('unlockPass').value.trim();
-        if (pass === settings.password) {
-            isAppLocked = false; 
-            document.getElementById('lockScreen').classList.add('hidden-lock');
-            document.getElementById('unlockPass').value = '';
-            updateCodes(); 
-        } else {
-            showNotification("Mật khẩu không chính xác!", "error");
-        }
-    });
+document.getElementById('btnCloseSettings')?.addEventListener('click', () => {
+    document.getElementById('modalSettingsContent').style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        document.getElementById('modalSettings').classList.add('hidden');
+        document.getElementById('modalSettings').classList.remove('flex');
+    }, 200);
+});
 
-    document.getElementById('unlockPass')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') document.getElementById('btnUnlock').click();
-    });
+document.getElementById('btnToggleTheme')?.addEventListener('click', () => {
+    settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+    applyTheme(settings.theme);
+});
 
-    document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
-        if (!checkLogin()) return;
-        const oldPass = document.getElementById('oldPassword').value.trim();
-        const newPass = document.getElementById('newPassword').value.trim();
-        if (!oldPass) return showNotification("Vui lòng nhập mật khẩu hiện tại!", "error");
-        if (!newPass || newPass.length < 6) return showNotification("Mật khẩu mới phải từ 6 ký tự!", "error");
-        try {
-            const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
-            if (signInError) return showNotification("Mật khẩu hiện tại không chính xác!", "error");
-            const { error: updateError } = await db.auth.updateUser({ password: newPass });
-            if (updateError) throw updateError;
-            showNotification("Đổi mật khẩu thành công!", "success");
-            document.getElementById('oldPassword').value = '';
-            document.getElementById('newPassword').value = '';
-        } catch (err) { showNotification("Lỗi đổi mật khẩu!", "error"); }
-    });
-}
+document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
+    if (!checkLogin()) return;
+    settings.password = document.getElementById('inputPassword').value.trim();
+    saveSettings(); autoSync();
+    document.getElementById('btnCloseSettings').click();
+    showNotification("Đã lưu cài đặt!", "success");
+});
+
+document.getElementById('btnImport')?.addEventListener('click', () => {
+    if (!checkLogin() || isAppLocked) return;
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = event => {
+            try {
+                const data = JSON.parse(event.target.result);
+                if (data.salt && data.content && !data.entries) { 
+                    return showNotification("LỖI: File bị MÃ HÓA! Hãy xuất dạng Plain text.", "error"); 
+                }
+                let extractedAccounts = [];
+                function scanObject(obj) {
+                    if (!obj) return;
+                    if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
+                    if (typeof obj === 'object') {
+                        let name = obj.name || obj.title || obj.issuer || "Tài khoản";
+                        let secret = obj.secret || obj.key || null;
+                        let uri = obj.uri || obj.otpauth || null;
+                        if (!secret && uri && typeof uri === 'string') {
+                            const match = uri.match(/[?&]secret=([^&]+)/);
+                            if (match) secret = decodeURIComponent(match[1]);
+                        }
+                        if (secret && typeof secret === 'string') {
+                            if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name: name, secret: secret });
+                        }
+                        for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
+                    }
+                }
+                scanObject(data);
+                let count = 0;
+                if (extractedAccounts.length > 0) {
+                    extractedAccounts.forEach(newAcc => {
+                        if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
+                            accounts.push(newAcc); count++;
+                        }
+                    });
+                    if (count > 0) { 
+                        saveData(); renderAccounts(); autoSync(); 
+                        showNotification(`Import thành công ${count} tài khoản!`, "success"); 
+                    }
+                    else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
+                } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
+            } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+});
+
+document.getElementById('btnUnlock')?.addEventListener('click', () => {
+    const pass = document.getElementById('unlockPass').value.trim();
+    if (pass === settings.password) {
+        isAppLocked = false; 
+        document.getElementById('lockScreen').classList.add('hidden-lock');
+        document.getElementById('unlockPass').value = '';
+        updateCodes(); 
+        resetAutoLock();
+    } else {
+        showNotification("Mật khẩu không chính xác!", "error");
+    }
+});
+
+document.getElementById('unlockPass')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('btnUnlock').click();
+});
