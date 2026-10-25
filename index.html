@@ -48,6 +48,9 @@
             <input type="password" id="unlockPass" placeholder="Nhập mật khẩu..." class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-xl shadow-soft focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
             <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 roblox-btn text-white rounded-lg"><i class="fas fa-arrow-right"></i></button>
         </div>
+        <button id="btnBiometricUnlock" class="hidden mt-6 flex items-center gap-2 px-6 py-3 bg-white dark:bg-darkcard border border-gray-200 dark:border-gray-700 rounded-2xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 btn-anim shadow-soft text-roblox">
+            <i class="fas fa-fingerprint text-xl"></i> Dùng Windows Hello
+        </button>
     </div>
 
     <!-- THANH CÔNG CỤ -->
@@ -114,20 +117,24 @@
                 <button id="btnCloseSettings" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-lg"></i></button>
             </div>
             <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                    <h3 class="font-bold">Giao diện</h3>
-                    <p class="text-xs text-gray-500">Chọn chế độ Sáng hoặc Tối</p>
-                </div>
-                <button id="btnToggleTheme" class="w-12 h-7 bg-gray-300 dark:bg-roblox rounded-full relative transition-colors duration-300">
-                    <div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="themeThumb"></div>
-                </button>
+                <div><h3 class="font-bold">Giao diện</h3><p class="text-xs text-gray-500">Chọn chế độ Sáng hoặc Tối</p></div>
+                <button id="btnToggleTheme" class="w-12 h-7 bg-gray-300 dark:bg-roblox rounded-full relative transition-colors duration-300"><div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="themeThumb"></div></button>
+            </div>
+            <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
+                <div><h3 class="font-bold">Tự động khóa khi rời tab</h3><p class="text-xs text-gray-500">Bảo vệ mã khi bạn chuyển tab</p></div>
+                <button id="btnToggleAutoLock" class="w-12 h-7 bg-gray-300 dark:bg-roblox rounded-full relative transition-colors duration-300"><div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="autoLockThumb"></div></button>
             </div>
             <div class="mb-5">
                 <h3 class="font-bold mb-1">Mật khẩu bảo vệ App</h3>
                 <input type="password" id="inputPassword" placeholder="Nhập mật khẩu..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
             </div>
-            <div class="flex justify-end mt-4">
-                <button id="btnSaveSettings" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md">Lưu thay đổi</button>
+            <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
+                <div><h3 class="font-bold">Mở khóa bằng Vân tay / Khuôn mặt</h3><p class="text-xs text-gray-500">Sử dụng Windows Hello để đăng nhập</p></div>
+                <button id="btnSetupBiometric" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-xl text-sm font-semibold transition">Cài đặt</button>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-5 flex flex-col gap-3">
+                <button id="btnExport" class="w-full py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition text-sm flex items-center justify-center gap-2"><i class="fas fa-file-export"></i> Xuất dữ liệu (JSON)</button>
+                <button id="btnSaveSettings" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md w-full">Lưu thay đổi</button>
             </div>
         </div>
     </div>
@@ -141,10 +148,7 @@
             </div>
             <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                 <div class="w-14 h-14 bg-roblox text-white rounded-full flex items-center justify-center text-2xl shadow-md"><i class="fas fa-user"></i></div>
-                <div>
-                    <p class="text-xs text-gray-500 font-semibold">Đã đăng nhập</p>
-                    <p class="font-bold text-lg" id="profileEmail">...</p>
-                </div>
+                <div><p class="text-xs text-gray-500 font-semibold">Đã đăng nhập</p><p class="font-bold text-lg" id="profileEmail">...</p></div>
             </div>
             <div class="mb-6">
                 <h3 class="font-bold mb-2">Đổi mật khẩu tài khoản</h3>
@@ -171,7 +175,6 @@
         </div>
     </div>
 
-    <!-- Nhúng file Javascript -->
     <script src="app.js"></script>
     <script src="fix.js"></script>
 </body>
