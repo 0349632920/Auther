@@ -11,6 +11,10 @@ let isAppLocked = false;
 let autoLockTimer;
 let html5QrCode = null;
 
+// Biến lưu thông tin link chia sẻ đang chờ xử lý
+let pendingShareSecret = null;
+let pendingShareName = null;
+
 // ==========================================
 // CÁC HÀM TIỆN ÍCH
 // ==========================================
@@ -159,8 +163,32 @@ async function generateOTP(secret, offset = 0) {
 }
 
 // ==========================================
-// KHỞI TẠO
+// XỬ LÝ LINK CHIA SẺ (CÓ KIỂM TRA TRÙNG LẶP)
 // ==========================================
+function processPendingShare() {
+    if (!pendingShareSecret || !pendingShareName) return;
+    if (isAppLocked) return; // Chưa mở khóa thì chưa xử lý
+
+    // Kiểm tra xem mã này đã có trong danh sách chưa
+    const isDuplicate = accounts.some(a => a.secret === pendingShareSecret || a.name === pendingShareName);
+    
+    if (isDuplicate) {
+        showNotification(`Tài khoản "${pendingShareName}" đã có sẵn trong danh sách!`, "error");
+    } else {
+        // Nếu chưa có, hỏi người dùng có muốn thêm không
+        if (confirm(`Bạn có muốn thêm tài khoản "${pendingShareName}" từ link chia sẻ không?`)) {
+            accounts.push({ name: pendingShareName, secret: pendingShareSecret });
+            saveData(); renderAccounts(); autoSync();
+            showNotification("Đã thêm tài khoản từ link chia sẻ!", "success");
+        }
+    }
+    
+    // Xóa thông tin chờ xử lý
+    pendingShareSecret = null;
+    pendingShareName = null;
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
@@ -168,17 +196,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkUserSession();
     setupEventListeners();
     
-    // Nhận link chia sẻ
+    // Đọc link chia sẻ từ URL (nếu có)
     const urlParams = new URLSearchParams(window.location.search);
     const shareSecret = urlParams.get('share_secret');
     const shareName = urlParams.get('share_name');
     if (shareSecret && shareName) {
-        if (confirm(`Bạn có muốn thêm tài khoản "${shareName}" từ link chia sẻ không?`)) {
-            accounts.push({ name: shareName, secret: atob(shareSecret) });
-            saveData(); renderAccounts(); autoSync();
-            showNotification("Đã thêm tài khoản từ link chia sẻ!", "success");
+        // Lưu vào biến tạm, KHÔNG hiển thị confirm ngay
+        pendingShareSecret = atob(shareSecret);
+        pendingShareName = shareName;
+        
+        // Nếu App KHÔNG bị khóa (không có mật khẩu), xử lý luôn
+        if (!isAppLocked) {
+            processPendingShare();
         }
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Nếu App bị khóa, đợi đến khi mở khóa xong sẽ xử lý
     }
     
     // Kéo thả
@@ -327,7 +358,6 @@ document.addEventListener('visibilitychange', () => {
 // GẮN SỰ KIỆN CHO TẤT CẢ CÁC NÚT
 // ==========================================
 function setupEventListeners() {
-    // 1. Nút Thêm (Add)
     document.getElementById('btnAdd')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
@@ -365,7 +395,6 @@ function setupEventListeners() {
         document.getElementById('btnCancelAdd')?.click();
     });
 
-    // 2. Nút Quét QR
     document.getElementById('btnScanQR')?.addEventListener('click', () => {
         document.getElementById('modalQR').classList.remove('hidden');
         document.getElementById('modalQR').classList.add('flex');
@@ -407,7 +436,6 @@ function setupEventListeners() {
         }
     });
 
-    // 3. Nút Profile
     document.getElementById('btnUser')?.addEventListener('click', () => {
         if (currentUser) {
             document.getElementById('modalProfile').classList.remove('hidden');
@@ -424,7 +452,6 @@ function setupEventListeners() {
         }, 200);
     });
 
-    // 4. Nút Import
     document.getElementById('btnImport')?.addEventListener('click', () => {
         if (!checkLogin() || isAppLocked) return;
         const input = document.createElement('input');
@@ -472,7 +499,6 @@ function setupEventListeners() {
         input.click();
     });
 
-    // 5. Nút Cài đặt (Settings)
     document.getElementById('btnSettings')?.addEventListener('click', () => {
         if (!checkLogin() || isAppLocked) return;
         document.getElementById('inputPassword').value = settings.password;
@@ -496,7 +522,6 @@ function setupEventListeners() {
     });
 
     document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
-        // SỬA LỖI: Nếu chưa có mật khẩu thì không cho bật AutoLock
         if (!settings.password) {
             showNotification("Vui lòng nhập mật khẩu bên dưới trước khi bật tính năng này!", "error");
             document.getElementById('inputPassword').focus();
@@ -508,7 +533,6 @@ function setupEventListeners() {
 
     document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
         settings.password = document.getElementById('inputPassword').value.trim();
-        // Nếu người dùng xóa pass, tự động tắt autoLock
         if (!settings.password) {
             settings.autoLock = false;
             updateAutoLockUI();
@@ -518,7 +542,6 @@ function setupEventListeners() {
         showNotification("Đã lưu cài đặt!", "success");
     });
 
-    // 6. Nút Xuất File (Export)
     document.getElementById('btnExport')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
@@ -535,7 +558,6 @@ function setupEventListeners() {
         showNotification("Đã xuất file JSON thành công!", "success");
     });
 
-    // 7. Nút Chia sẻ
     window.openShareModal = function(secret, name) {
         if (!checkLogin()) return;
         const encodedSecret = btoa(secret);
@@ -560,7 +582,6 @@ function setupEventListeners() {
         });
     });
 
-    // 8. Nút Đăng xuất
     document.getElementById('btnLogout')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         document.getElementById('modalLogout').classList.remove('hidden');
@@ -585,7 +606,6 @@ function setupEventListeners() {
         window.location.href = "/login";
     });
 
-    // 9. Nút Xóa (Delete) - SỬA LỖI KHÔNG HOẠT ĐỘNG
     window.openDeleteModal = function(index) {
         if (!checkLogin() || isAppLocked) return;
         deleteIndex = index;
@@ -617,7 +637,6 @@ function setupEventListeners() {
         }
     });
 
-    // 10. Màn hình khóa
     document.getElementById('btnUnlock')?.addEventListener('click', () => {
         const pass = document.getElementById('unlockPass').value.trim();
         if (pass === settings.password) {
@@ -626,6 +645,9 @@ function setupEventListeners() {
             document.getElementById('unlockPass').value = '';
             updateCodes(); 
             resetAutoLock();
+            
+            // NẾU CÓ LINK CHIA SẺ ĐANG CHỜ, XỬ LÝ NGAY BÂY GIỜ
+            processPendingShare();
         } else {
             showNotification("Mật khẩu không chính xác!", "error");
         }
@@ -635,7 +657,6 @@ function setupEventListeners() {
         if (e.key === 'Enter') document.getElementById('btnUnlock').click();
     });
 
-    // 11. Đổi mật khẩu
     document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
         if (!checkLogin()) return;
         const oldPass = document.getElementById('oldPassword').value.trim();
