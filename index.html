@@ -10,11 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- Thư viện cho các tính năng nâng cao -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -39,7 +34,6 @@
         .roblox-card { background-color: #FFFFFF; border-radius: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); border: 1px solid #E3E5E7; transition: all 0.2s ease; }
         .dark .roblox-card { background-color: #393B3D; border: 1px solid #4A4D50; }
         .roblox-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); }
-        #reader { width: 100%; border-radius: 12px; overflow: hidden; }
     </style>
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300 relative">
@@ -90,56 +84,24 @@
             </div>
             <label class="block text-sm font-semibold text-gray-600 mb-2">Tên tài khoản</label>
             <input type="text" id="inputName" placeholder="VD: Roblox..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
-            
-            <div class="flex justify-between items-center mb-2">
-                <label class="text-sm font-semibold text-gray-600">Mã bảo mật (Secret)</label>
-                <button id="btnScanQR" class="text-sm text-roblox font-semibold hover:underline"><i class="fas fa-qrcode"></i> Quét QR</button>
-            </div>
+            <label class="block text-sm font-semibold text-gray-600 mb-2">Mã bảo mật (Secret)</label>
             <input type="text" id="inputSecret" placeholder="JBSWY3DP..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-6 focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
-            
-            <div class="flex justify-end gap-3 mt-4">
+            <div class="flex justify-end gap-3">
                 <button id="btnCancelAdd" class="px-5 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition">Hủy</button>
                 <button id="btnSaveAdd" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md">Lưu tài khoản</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL QUÉT QR -->
-    <div id="modalQR" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalQRContent">
-            <div class="flex justify-between items-center mb-5">
-                <h2 class="text-xl font-bold">Quét mã QR</h2>
-                <button id="btnCloseQR" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-lg"></i></button>
-            </div>
-            <div id="reader"></div>
-        </div>
-    </div>
-
-    <!-- MODAL CHIA SẺ (GỬI LINK) -->
-    <div id="modalShare" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="modalShareContent">
-            <h2 class="text-xl font-bold mb-2">Chia sẻ tài khoản</h2>
-            <p class="text-gray-500 mb-4 text-sm">Gửi link này cho người khác để họ thêm tài khoản.</p>
-            <input type="text" id="shareLink" readonly class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none border border-gray-200 dark:border-gray-700 text-sm">
-            <div class="flex justify-end gap-3">
-                <button id="btnCloseShare" class="px-5 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition">Đóng</button>
-                <button id="btnCopyShare" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md">Copy Link</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL XÁC NHẬN THÊM TỪ LINK CHIA SẺ (GUI MỚI) -->
-    <div id="modalShareConfirm" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
-        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modalShareConfirmContent">
-            <div class="w-16 h-16 bg-blue-100 text-roblox rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-                <i class="fas fa-share-alt"></i>
-            </div>
-            <h2 class="text-xl font-bold mb-2">Thêm tài khoản?</h2>
-            <p class="text-gray-500 mb-6 text-sm">Bạn nhận được một tài khoản chia sẻ có tên: <br><b id="shareConfirmName" class="text-gray-800 dark:text-gray-200 text-lg"></b></p>
-            
+    <!-- MODAL XÁC NHẬN XÓA -->
+    <div id="modalDelete" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modalDeleteContent">
+            <div class="w-14 h-14 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl"><i class="fas fa-trash-alt"></i></div>
+            <h2 class="text-xl font-bold mb-2">Xóa tài khoản?</h2>
+            <p class="text-gray-500 mb-6 text-sm">Bạn có chắc muốn xóa <span id="deleteName" class="font-bold text-gray-800 dark:text-gray-200"></span> không?</p>
             <div class="flex justify-center gap-3">
-                <button id="btnCancelShareConfirm" class="px-5 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition">Từ chối</button>
-                <button id="btnAcceptShareConfirm" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md">Chấp nhận</button>
+                <button id="btnCancelDelete" class="px-5 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition">Hủy</button>
+                <button id="btnConfirmDelete" class="px-5 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition">Xóa</button>
             </div>
         </div>
     </div>
@@ -160,24 +122,12 @@
                     <div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="themeThumb"></div>
                 </button>
             </div>
-            <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                    <h3 class="font-bold">Tự động khóa khi rời tab</h3>
-                    <p class="text-xs text-gray-500">Bảo vệ mã khi bạn chuyển tab</p>
-                </div>
-                <button id="btnToggleAutoLock" class="w-12 h-7 bg-gray-300 dark:bg-roblox rounded-full relative transition-colors duration-300">
-                    <div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="autoLockThumb"></div>
-                </button>
-            </div>
             <div class="mb-5">
                 <h3 class="font-bold mb-1">Mật khẩu bảo vệ App</h3>
                 <input type="password" id="inputPassword" placeholder="Nhập mật khẩu..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
             </div>
-            <div class="border-t border-gray-200 dark:border-gray-700 pt-5 flex flex-col gap-3">
-                <button id="btnExport" class="w-full py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition text-sm flex items-center justify-center gap-2">
-                    <i class="fas fa-file-export"></i> Xuất dữ liệu (JSON)
-                </button>
-                <button id="btnSaveSettings" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md w-full">Lưu thay đổi</button>
+            <div class="flex justify-end mt-4">
+                <button id="btnSaveSettings" class="px-5 py-2.5 rounded-xl roblox-btn text-white shadow-md">Lưu thay đổi</button>
             </div>
         </div>
     </div>
@@ -221,6 +171,7 @@
         </div>
     </div>
 
+    <!-- Nhúng file Javascript -->
     <script src="app.js"></script>
     <script src="fix.js"></script>
 </body>
