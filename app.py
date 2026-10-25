@@ -1,17 +1,33 @@
 import os
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, make_response
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
+# Hàm phụ trợ để thêm header chống cache vào mọi file trả về
+def no_cache_response(filepath, filename):
+    response = make_response(send_from_directory(filepath, filename))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return no_cache_response('.', 'index.html')
+
+@app.route('/login')
+def login_page():
+    return no_cache_response('.', 'login.html')
+
+@app.route('/register')
+def register_page():
+    return no_cache_response('.', 'register.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
     if os.path.exists(path):
-        return send_from_directory('.', path)
-    return send_from_directory('.', 'index.html')
+        return no_cache_response('.', path)
+    return no_cache_response('.', 'index.html')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
