@@ -31,18 +31,6 @@
             <span id="btnText">Đăng nhập</span>
             <i id="btnSpinner" class="fas fa-spinner loading-spinner hidden"></i>
         </button>
-
-        <!-- ĐĂNG NHẬP BẰNG GOOGLE -->
-        <div class="relative flex py-2 items-center">
-            <div class="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
-            <span class="flex-shrink mx-4 text-gray-400 text-sm">Hoặc</span>
-            <div class="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
-        </div>
-        
-        <button id="btnGoogleLogin" type="button" class="w-full py-3 rounded-xl bg-white dark:bg-darkcard border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm transition-all duration-200 mb-4 flex justify-center items-center gap-2">
-            <img src="https://www.google.com/favicon.ico" alt="Google" class="w-5 h-5">
-            Đăng nhập bằng Google
-        </button>
         
         <div class="text-center text-sm text-gray-500">
             Chưa có tài khoản? <a href="/register" class="text-roblox font-semibold hover:underline">Đăng ký ngay</a>
@@ -67,7 +55,6 @@
             setTimeout(() => { toastEl.classList.remove('show'); }, 3000);
         }
 
-        // ĐĂNG NHẬP THƯỜNG
         btnLogin.addEventListener('click', async (e) => {
             e.preventDefault();
             let username = document.getElementById('username').value.trim().toLowerCase();
@@ -96,21 +83,6 @@
                 btnLogin.disabled = false;
                 btnText.textContent = "Đăng nhập";
                 btnSpinner.classList.add('hidden');
-            }
-        });
-
-        // ĐĂNG NHẬP BẰNG GOOGLE
-        document.getElementById('btnGoogleLogin').addEventListener('click', async () => {
-            try {
-                const { data, error } = await db.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: {
-                        redirectTo: window.location.origin + "/"
-                    }
-                });
-                if (error) throw error;
-            } catch (err) {
-                showNotification("Lỗi đăng nhập Google: " + err.message, "error");
             }
         });
     </script>
