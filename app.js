@@ -11,9 +11,6 @@ let isAppLocked = false;
 let autoLockTimer;
 let html5QrCode = null;
 
-// ==========================================
-// CÁC HÀM TIỆN ÍCH
-// ==========================================
 function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
@@ -31,16 +28,14 @@ function showNotification(message, type = 'error') {
 
 function checkLogin() {
     if (!currentUser) {
-        showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
+        showNotification("Vui lòng đăng nhập!", "error");
         setTimeout(() => { window.location.href = "/login"; }, 1000);
         return false;
     }
     return true;
 }
 
-// ==========================================
-// TÍNH NĂNG: TỰ ĐỘNG KHÓA (IDLE TIMEOUT)
-// ==========================================
+// TÍNH NĂNG: TỰ ĐỘNG KHÓA
 function resetAutoLock() {
     if (!settings.password || isAppLocked) return;
     clearTimeout(autoLockTimer);
@@ -53,9 +48,7 @@ function resetAutoLock() {
 document.addEventListener('mousemove', resetAutoLock);
 document.addEventListener('keydown', resetAutoLock);
 
-// ==========================================
 // TÍNH NĂNG: MÃ HÓA DỮ LIỆU LOCAL
-// ==========================================
 function encryptData(text, password) {
     if (!password) return text; 
     return CryptoJS.AES.encrypt(text, password).toString();
@@ -120,9 +113,7 @@ function saveData() {
     localStorage.setItem('proton_accounts', encrypted);
 }
 
-// ==========================================
-// THUẬT TOÁN OTP & ĐỒNG BỘ
-// ==========================================
+// THUẬT TOÁN OTP
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
@@ -165,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkUserSession();
     setupEventListeners();
     
-    // TÍNH NĂNG: NHẬN LINK CHIA SẺ
+    // NHẬN LINK CHIA SẺ
     const urlParams = new URLSearchParams(window.location.search);
     const shareSecret = urlParams.get('share_secret');
     const shareName = urlParams.get('share_name');
@@ -178,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // TÍNH NĂNG: KÉO THẢ
+    // KÉO THẢ
     new Sortable(document.getElementById('sortableGrid'), {
         animation: 150,
         ghostClass: 'opacity-50',
@@ -235,6 +226,7 @@ function renderAccounts() {
             copyCode(account.secret);
         };
         
+        // TẠO THẺ VỚI ĐẦY ĐỦ VÒNG TRÒN VÀ NÚT
         card.innerHTML = `
             <div class="absolute top-4 right-4 flex gap-1 z-10">
                 <button class="btn-share w-8 h-8 flex items-center justify-center text-gray-300 hover:text-roblox rounded-full" onclick="openShareModal('${account.secret}', '${account.name}')" title="Chia sẻ">
@@ -271,6 +263,7 @@ async function updateCodes() {
     const remaining = 30 - (now % 30);
     const fraction = remaining / 30;
     
+    // VÒNG TRÒN ĐẾM GIÂY
     document.querySelectorAll('.arc').forEach(arc => {
         arc.style.strokeDasharray = `${fraction * 100}, 100`;
         if (remaining <= 5) { arc.classList.remove('text-roblox'); arc.classList.add('text-red-500'); }
@@ -358,6 +351,48 @@ function setupEventListeners() {
         document.getElementById('btnCancelAdd')?.click();
     });
 
+    // NÚT QUÉT QR
+    document.getElementById('btnScanQR')?.addEventListener('click', () => {
+        document.getElementById('modalQR').classList.remove('hidden');
+        document.getElementById('modalQR').classList.add('flex');
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+            { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('modalQR').classList.add('hidden');
+                    document.getElementById('modalQR').classList.remove('flex');
+                    try {
+                        const url = new URL(decodedText);
+                        const secret = url.searchParams.get("secret");
+                        const issuer = url.searchParams.get("issuer") || url.pathname.split("/").pop();
+                        if (secret) {
+                            document.getElementById('inputName').value = issuer;
+                            document.getElementById('inputSecret').value = secret;
+                            showNotification("Đã quét mã QR thành công!", "success");
+                        }
+                    } catch (e) { showNotification("Mã QR không hợp lệ!", "error"); }
+                });
+            }
+        ).catch(err => {
+            showNotification("Không thể bật Camera! Hãy cấp quyền.", "error");
+            document.getElementById('modalQR').classList.add('hidden');
+            document.getElementById('modalQR').classList.remove('flex');
+        });
+    });
+
+    document.getElementById('btnCloseQR')?.addEventListener('click', () => {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('modalQR').classList.add('hidden');
+                document.getElementById('modalQR').classList.remove('flex');
+            });
+        } else {
+            document.getElementById('modalQR').classList.add('hidden');
+            document.getElementById('modalQR').classList.remove('flex');
+        }
+    });
+
     document.getElementById('btnUser')?.addEventListener('click', () => {
         if (currentUser) {
             document.getElementById('modalProfile').classList.remove('hidden');
@@ -375,8 +410,7 @@ function setupEventListeners() {
     });
 
     document.getElementById('btnImport')?.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
+        if (!checkLogin() || isAppLocked) return;
         const input = document.createElement('input');
         input.type = 'file'; input.accept = '.json';
         input.onchange = e => {
@@ -423,8 +457,7 @@ function setupEventListeners() {
     });
 
     document.getElementById('btnSettings')?.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
+        if (!checkLogin() || isAppLocked) return;
         document.getElementById('inputPassword').value = settings.password;
         updateAutoLockUI();
         document.getElementById('modalSettings').classList.remove('hidden');
@@ -455,6 +488,48 @@ function setupEventListeners() {
         saveSettings(); autoSync();
         document.getElementById('btnCloseSettings')?.click();
         showNotification("Đã lưu cài đặt!", "success");
+    });
+
+    // NÚT XUẤT FILE (EXPORT)
+    document.getElementById('btnExport')?.addEventListener('click', () => {
+        if (!checkLogin()) return;
+        if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
+        const dataStr = JSON.stringify(accounts, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `authenticator_backup_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showNotification("Đã xuất file JSON thành công!", "success");
+    });
+
+    // NÚT CHIA SẺ
+    window.openShareModal = function(secret, name) {
+        if (!checkLogin()) return;
+        const encodedSecret = btoa(secret);
+        const encodedName = encodeURIComponent(name);
+        const shareUrl = `${window.location.origin}/?share_secret=${encodedSecret}&share_name=${encodedName}`;
+        document.getElementById('shareLink').value = shareUrl;
+        document.getElementById('modalShare').classList.remove('hidden');
+        document.getElementById('modalShare').classList.add('flex');
+    }
+
+    document.getElementById('btnCloseShare')?.addEventListener('click', () => {
+        document.getElementById('modalShare').classList.add('hidden');
+        document.getElementById('modalShare').classList.remove('flex');
+    });
+
+    document.getElementById('btnCopyShare')?.addEventListener('click', () => {
+        const link = document.getElementById('shareLink').value;
+        navigator.clipboard.writeText(link).then(() => {
+            showNotification("Đã copy link chia sẻ!", "success");
+            document.getElementById('modalShare').classList.add('hidden');
+            document.getElementById('modalShare').classList.remove('flex');
+        });
     });
 
     document.getElementById('btnLogout')?.addEventListener('click', () => {
