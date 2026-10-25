@@ -10,8 +10,6 @@ let isCloudLoaded = false;
 let isAppLocked = false;
 let autoLockTimer;
 let html5QrCode = null;
-
-// Biến lưu thông tin link chia sẻ đang chờ xử lý
 let pendingShareSecret = null;
 let pendingShareName = null;
 
@@ -35,7 +33,7 @@ function showNotification(message, type = 'error') {
 
 function checkLogin() {
     if (!currentUser) {
-        showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
+        showNotification("Vui lòng đăng nhập!", "error");
         setTimeout(() => { window.location.href = "/login"; }, 1000);
         return false;
     }
@@ -167,9 +165,8 @@ async function generateOTP(secret, offset = 0) {
 // ==========================================
 function processPendingShare() {
     if (!pendingShareSecret || !pendingShareName) return;
-    if (isAppLocked) return; // Chưa mở khóa thì chưa hiện GUI
+    if (isAppLocked) return;
 
-    // Kiểm tra xem mã này đã có trong danh sách chưa
     const isDuplicate = accounts.some(a => a.secret === pendingShareSecret || a.name === pendingShareName);
     
     if (isDuplicate) {
@@ -178,7 +175,6 @@ function processPendingShare() {
         pendingShareName = null;
         window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-        // Nếu chưa có, hiển thị Modal GUI
         document.getElementById('shareConfirmName').textContent = pendingShareName;
         document.getElementById('modalShareConfirm').classList.remove('hidden');
         document.getElementById('modalShareConfirm').classList.add('flex');
@@ -196,21 +192,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkUserSession();
     setupEventListeners();
     
-    // Đọc link chia sẻ từ URL (nếu có)
     const urlParams = new URLSearchParams(window.location.search);
     const shareSecret = urlParams.get('share_secret');
     const shareName = urlParams.get('share_name');
     if (shareSecret && shareName) {
         pendingShareSecret = atob(shareSecret);
         pendingShareName = shareName;
-        
-        // Nếu App KHÔNG bị khóa, hiển thị GUI luôn
-        if (!isAppLocked) {
-            processPendingShare();
-        }
+        if (!isAppLocked) processPendingShare();
     }
     
-    // Kéo thả
     new Sortable(document.getElementById('sortableGrid'), {
         animation: 150,
         ghostClass: 'opacity-50',
@@ -261,7 +251,7 @@ function renderAccounts() {
         
         card.onclick = (e) => {
             if (e.target.closest('.btn-delete') || e.target.closest('.btn-share')) return; 
-            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để copy mã!", "error");
+            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
             card.style.transform = 'scale(0.96)';
             setTimeout(() => { card.style.transform = ''; }, 150);
             copyCode(account.secret);
