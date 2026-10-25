@@ -10,8 +10,6 @@ let isCloudLoaded = false;
 let isAppLocked = false;
 let autoLockTimer;
 let html5QrCode = null;
-let pendingShareSecret = null;
-let pendingShareName = null;
 
 // ==========================================
 // HÀM HIỂN THỊ THÔNG BÁO
@@ -52,7 +50,7 @@ function resetAutoLock() {
         document.getElementById('lockScreen')?.classList.remove('hidden-lock');
         if (settings.biometricId) document.getElementById('btnBiometricUnlock')?.classList.remove('hidden');
         updateCodes();
-    }, 5 * 60 * 1000); // 5 phút
+    }, 5 * 60 * 1000);
 }
 document.addEventListener('mousemove', resetAutoLock);
 document.addEventListener('keydown', resetAutoLock);
@@ -132,7 +130,7 @@ function saveData() {
 }
 
 // ==========================================
-// THUẬT TOÁN OTP
+// THUẬT TOÁN OTP & WEBAUTHN
 // ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
@@ -171,38 +169,24 @@ async function generateOTP(secret, offset = 0) {
     } catch (e) { return "Error"; }
 }
 
-// ==========================================
-// WEBAUTHN FUNCTIONS
-// ==========================================
 async function registerBiometric() {
-    if (!window.PublicKeyCredential) {
-        showNotification("Trình duyệt không hỗ trợ Windows Hello.", "error");
-        return;
-    }
+    if (!window.PublicKeyCredential) return showNotification("Trình duyệt không hỗ trợ Windows Hello.", "error");
     try {
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
         const publicKeyCredentialCreationOptions = {
             challenge: challenge,
             rp: { name: "Authenticator Clone", id: window.location.hostname || "localhost" },
-            user: {
-                id: Uint8Array.from("user-id-123", c => c.charCodeAt(0)),
-                name: "user@example.com",
-                displayName: "User",
-            },
+            user: { id: Uint8Array.from("user-id-123", c => c.charCodeAt(0)), name: "user@example.com", displayName: "User" },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
             authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-            timeout: 60000,
-            attestation: "direct"
+            timeout: 60000, attestation: "direct"
         };
-        const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreateOptions });
-        const credId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
-        settings.biometricId = credId;
+        const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
+        settings.biometricId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
         saveSettings();
         showNotification("Cài đặt Windows Hello thành công!", "success");
-    } catch (err) {
-        showNotification("Lỗi cài đặt Vân tay. Hãy chắc chắn bạn đang dùng HTTPS.", "error");
-    }
+    } catch (err) { showNotification("Lỗi cài đặt Vân tay. Hãy chắc chắn bạn đang dùng HTTPS.", "error"); }
 }
 
 async function authenticateBiometric() {
@@ -211,62 +195,24 @@ async function authenticateBiometric() {
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
         const rawId = new Uint8Array(atob(settings.biometricId).split("").map(c => c.charCodeAt(0)));
-        const publicKeyCredentialRequestOptions = {
-            challenge: challenge,
-            allowCredentials: [{ id: rawId, type: 'public-key', transports: ['internal'] }],
-            userVerification: "required",
-            timeout: 60000,
-        };
-        await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
+        await navigator.credentials.get({ publicKey: { challenge: challenge, allowCredentials: [{ id: rawId, type: 'public-key', transports: ['internal'] }], userVerification: "required", timeout: 60000 } });
         return true;
-    } catch (err) {
-        return false;
-    }
+    } catch (err) { return false; }
 }
 
-// ==========================================
-// XỬ LÝ CHIA SẺ
-// ==========================================
-function processPendingShare() {
-    if (!pendingShareSecret || !pendingShareName) return;
-    if (isAppLocked) return;
-
-    const isDuplicate = accounts.some(a => a.secret === pendingShareSecret || a.name === pendingShareName);
-    
-    if (isDuplicate) {
-        showNotification(`Tài khoản "${pendingShareName}" đã có sẵn!`, "error");
-        pendingShareSecret = null;
-        pendingShareName = null;
-        window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-        document.getElementById('shareConfirmName').textContent = pendingShareName;
-        openModal('modalShareConfirm');
-    }
-}
-
-// ==========================================
-// HÀM HỖ TRỢ MODAL
-// ==========================================
 function openModal(id) {
     const modal = document.getElementById(id);
     const content = document.getElementById(id + 'Content');
     if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+        modal.classList.remove('hidden'); modal.classList.add('flex');
         if (content) setTimeout(() => { content.style.transform = 'scale(1)'; }, 50);
     }
 }
-
 function closeModal(id) {
     const modal = document.getElementById(id);
     const content = document.getElementById(id + 'Content');
     if (content) content.style.transform = 'scale(0.95)';
-    setTimeout(() => {
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-    }, 200);
+    setTimeout(() => { if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } }, 200);
 }
 
 // ==========================================
@@ -277,22 +223,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadData();
     setInterval(updateCodes, 1000);
     await checkUserSession();
-    bindAllEvents(); // Gắn tất cả sự kiện
-
-    // Nhận link chia sẻ
-    const urlParams = new URLSearchParams(window.location.search);
-    const shareSecret = urlParams.get('share_secret');
-    const shareName = urlParams.get('share_name');
-    if (shareSecret && shareName) {
-        pendingShareSecret = atob(shareSecret);
-        pendingShareName = shareName;
-        if (!isAppLocked) processPendingShare();
-    }
+    bindAllEvents();
     
-    // Kéo thả
     new Sortable(document.getElementById('sortableGrid'), {
-        animation: 150,
-        ghostClass: 'opacity-50',
+        animation: 150, ghostClass: 'opacity-50',
         onEnd: function (evt) {
             const item = accounts.splice(evt.oldIndex, 1)[0];
             accounts.splice(evt.newIndex, 0, item);
@@ -328,6 +262,9 @@ async function autoSync() {
     await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
 }
 
+// ==========================================
+// RENDER GIAO DIỆN (ĐÃ XÓA NÚT CHIA SẺ, THÊM ĐỒNG HỒ)
+// ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
@@ -339,7 +276,7 @@ function renderAccounts() {
         card.style.animationDelay = `${index * 0.05}s`;
         
         card.onclick = (e) => {
-            if (e.target.closest('.btn-delete') || e.target.closest('.btn-share')) return; 
+            if (e.target.closest('.btn-delete')) return; 
             if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
             card.style.transform = 'scale(0.96)';
             setTimeout(() => { card.style.transform = ''; }, 150);
@@ -347,21 +284,24 @@ function renderAccounts() {
         };
         
         card.innerHTML = `
-            <div class="absolute top-4 right-4 flex gap-1 z-10">
-                <button class="btn-share w-8 h-8 flex items-center justify-center text-gray-300 hover:text-roblox rounded-full" onclick="openShareModal('${account.secret}', '${account.name}')" title="Chia sẻ">
-                    <i class="fas fa-share-alt text-sm"></i>
-                </button>
-                <button class="btn-delete w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 rounded-full" onclick="openDeleteModal(${index})" title="Xóa">
-                    <i class="fas fa-trash-alt text-sm"></i>
-                </button>
-            </div>
-            <div class="flex items-start justify-between pr-16">
+            <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 rounded-full z-10" title="Xóa">
+                <i class="fas fa-trash-alt text-sm"></i>
+            </button>
+            <div class="flex items-start justify-between pr-8">
                 <div class="flex items-center gap-3.5">
                     <div class="w-11 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 text-roblox flex items-center justify-center font-bold text-xl border border-gray-200 dark:border-gray-700 group-hover:bg-roblox group-hover:text-white transition-colors">${account.name.charAt(0).toUpperCase()}</div>
                     <div>
                         <h3 class="font-bold text-gray-800 dark:text-gray-100 text-[17px] truncate max-w-[130px]">${account.name}</h3>
                         <p class="text-xs text-gray-400 mt-1">2FA Code</p>
                     </div>
+                </div>
+                <!-- ĐỒNG HỒ TRÒN ĐẾM GIÂY -->
+                <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
+                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                        <path class="text-gray-200 dark:text-gray-600" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="text-roblox arc" stroke-dasharray="100, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                    <span class="absolute text-[10px] font-bold text-gray-600 dark:text-gray-300 sec-label">30</span>
                 </div>
             </div>
             <div class="mt-5 flex items-end justify-between">
@@ -433,20 +373,23 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ==========================================
-// GẮN TẤT CẢ SỰ KIỆN NÚT BẤM (BIND ALL EVENTS)
+// GẮN SỰ KIỆN (ĐÃ XÓA NÚT CHIA SẺ)
 // ==========================================
 function bindAllEvents() {
-    // 1. Nút Add
-    document.getElementById('btnAdd')?.addEventListener('click', () => {
-        if (!checkLogin()) return;
-        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-        openModal('modalAdd');
-    });
+    const bindClick = (id, func) => {
+        const el = document.getElementById(id);
+        if (el) {
+            const newEl = el.cloneNode(true);
+            el.replaceWith(newEl);
+            newEl.addEventListener('click', func);
+        }
+    };
 
-    document.getElementById('btnCancelAdd')?.addEventListener('click', () => closeModal('modalAdd'));
-    document.getElementById('btnCloseModal')?.addEventListener('click', () => closeModal('modalAdd'));
+    bindClick('btnAdd', () => { if (!checkLogin() || isAppLocked) return; openModal('modalAdd'); });
+    bindClick('btnCancelAdd', () => closeModal('modalAdd'));
+    bindClick('btnCloseModal', () => closeModal('modalAdd'));
 
-    document.getElementById('btnSaveAdd')?.addEventListener('click', async () => {
+    bindClick('btnSaveAdd', async () => {
         const name = document.getElementById('inputName').value.trim();
         let secret = document.getElementById('inputSecret').value.trim();
         if (!name || !secret) return showNotification("Vui lòng nhập đủ thông tin!", "error");
@@ -462,143 +405,43 @@ function bindAllEvents() {
         closeModal('modalAdd');
     });
 
-    // 2. Nút Quét QR
-    document.getElementById('btnScanQR')?.addEventListener('click', () => {
-        openModal('modalQR');
-        html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start(
-            { facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } },
-            (decodedText) => {
-                html5QrCode.stop().then(() => {
-                    closeModal('modalQR');
-                    try {
-                        const url = new URL(decodedText);
-                        const secret = url.searchParams.get("secret");
-                        const issuer = url.searchParams.get("issuer") || url.pathname.split("/").pop();
-                        if (secret) {
-                            document.getElementById('inputName').value = issuer;
-                            document.getElementById('inputSecret').value = secret;
-                            showNotification("Đã quét mã QR thành công!", "success");
-                        }
-                    } catch (e) { showNotification("Mã QR không hợp lệ!", "error"); }
-                });
-            }
-        ).catch(err => {
-            showNotification("Không thể bật Camera!", "error");
-            closeModal('modalQR');
-        });
-    });
+    bindClick('btnUser', () => { if (currentUser) openModal('modalProfile'); else window.location.href = "/login"; });
+    bindClick('btnCloseProfile', () => closeModal('modalProfile'));
 
-    document.getElementById('btnCloseQR')?.addEventListener('click', () => {
-        if (html5QrCode) html5QrCode.stop().finally(() => closeModal('modalQR'));
-        else closeModal('modalQR');
-    });
-
-    // 3. Nút Profile
-    document.getElementById('btnUser')?.addEventListener('click', () => {
-        if (currentUser) openModal('modalProfile');
-        else window.location.href = "/login";
-    });
-    document.getElementById('btnCloseProfile')?.addEventListener('click', () => closeModal('modalProfile'));
-
-    // 4. Nút Import
-    document.getElementById('btnImport')?.addEventListener('click', () => {
-        if (!checkLogin() || isAppLocked) return;
-        const input = document.createElement('input');
-        input.type = 'file'; input.accept = '.json';
-        input.onchange = e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = event => {
-                try {
-                    const data = JSON.parse(event.target.result);
-                    let extractedAccounts = [];
-                    function scanObject(obj) {
-                        if (!obj) return;
-                        if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
-                        if (typeof obj === 'object') {
-                            let name = obj.name || obj.title || obj.issuer || "Tài khoản";
-                            let secret = obj.secret || obj.key || null;
-                            let uri = obj.uri || obj.otpauth || null;
-                            if (!secret && uri && typeof uri === 'string') {
-                                const match = uri.match(/[?&]secret=([^&]+)/);
-                                if (match) secret = decodeURIComponent(match[1]);
-                            }
-                            if (secret && typeof secret === 'string') {
-                                if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name, secret });
-                            }
-                            for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
-                        }
-                    }
-                    scanObject(data);
-                    let count = 0;
-                    if (extractedAccounts.length > 0) {
-                        extractedAccounts.forEach(newAcc => {
-                            if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
-                                accounts.push(newAcc); count++;
-                            }
-                        });
-                        if (count > 0) { saveData(); renderAccounts(); autoSync(); showNotification(`Import thành công ${count} tài khoản!`, "success"); }
-                        else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
-                    } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
-                } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
-            };
-            reader.readAsText(file);
-        };
-        input.click();
-    });
-
-    // 5. Nút Settings
-    document.getElementById('btnSettings')?.addEventListener('click', () => {
+    bindClick('btnSettings', () => {
         if (!checkLogin() || isAppLocked) return;
         document.getElementById('inputPassword').value = settings.password;
         updateAutoLockUI();
         openModal('modalSettings');
     });
-    document.getElementById('btnCloseSettings')?.addEventListener('click', () => closeModal('modalSettings'));
-    
-    document.getElementById('btnToggleTheme')?.addEventListener('click', () => {
-        settings.theme = settings.theme === 'light' ? 'dark' : 'light';
-        applyTheme(settings.theme);
-    });
-
-    document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
+    bindClick('btnCloseSettings', () => closeModal('modalSettings'));
+    bindClick('btnToggleTheme', () => { settings.theme = settings.theme === 'light' ? 'dark' : 'light'; applyTheme(settings.theme); });
+    bindClick('btnToggleAutoLock', () => {
         if (!settings.password && !settings.biometricId) {
             showNotification("Vui lòng nhập mật khẩu hoặc cài Vân tay trước!", "error");
-            document.getElementById('inputPassword').focus();
-            return;
+            document.getElementById('inputPassword').focus(); return;
         }
-        settings.autoLock = !settings.autoLock;
-        updateAutoLockUI();
+        settings.autoLock = !settings.autoLock; updateAutoLockUI();
     });
-
-    document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
+    bindClick('btnSaveSettings', () => {
         settings.password = document.getElementById('inputPassword').value.trim();
         if (!settings.password && !settings.biometricId) { settings.autoLock = false; updateAutoLockUI(); }
-        saveSettings(); autoSync();
-        closeModal('modalSettings');
-        showNotification("Đã lưu cài đặt!", "success");
+        saveSettings(); autoSync(); closeModal('modalSettings'); showNotification("Đã lưu cài đặt!", "success");
     });
-
-    // 6. Nút Export
-    document.getElementById('btnExport')?.addEventListener('click', () => {
+    bindClick('btnSetupBiometric', registerBiometric);
+    bindClick('btnExport', () => {
         if (!checkLogin()) return;
         if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
         const dataStr = JSON.stringify(accounts, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `authenticator_backup_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = `authenticator_backup_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         showNotification("Đã xuất file JSON thành công!", "success");
     });
 
-    // 7. Nút Share & Delete trên thẻ (Dùng Event Delegation)
+    // Xử lý Xóa (Đã xóa Share)
     const grid = document.getElementById('sortableGrid');
     if (grid) {
         grid.addEventListener('click', (e) => {
@@ -606,117 +449,70 @@ function bindAllEvents() {
             if (deleteBtn) {
                 e.preventDefault(); e.stopPropagation();
                 if (!checkLogin() || isAppLocked) return;
-                const match = deleteBtn.getAttribute('onclick')?.match(/openDeleteModal\((\d+)\)/);
-                if (match && match[1]) {
-                    const index = parseInt(match[1]);
+                const card = deleteBtn.closest('.roblox-card');
+                const index = Array.from(accountList.children).indexOf(card);
+                if (index > -1) {
                     document.getElementById('deleteName').textContent = accounts[index].name;
                     window.deleteIndex = index; 
                     openModal('modalDelete');
                 }
                 return;
             }
-
-            const shareBtn = e.target.closest('.btn-share');
-            if (shareBtn) {
-                e.preventDefault(); e.stopPropagation();
-                if (!checkLogin() || isAppLocked) return;
-                
-                // Lấy secret trực tiếp từ thẻ cha
-                const card = shareBtn.closest('.roblox-card');
-                const secret = card.querySelector('.code-display')?.getAttribute('data-secret');
-                const name = card.querySelector('h3')?.textContent;
-
-                if (secret) {
-                    const shareUrl = `${window.location.origin}/?share_secret=${btoa(secret)}&share_name=${encodeURIComponent(name)}`;
-                    document.getElementById('shareLink').value = shareUrl;
-                    openModal('modalShare');
-                } else { showNotification("Không tìm thấy mã để chia sẻ!", "error"); }
-                return;
-            }
         });
     }
 
-    // 8. Nút Copy Share
-    document.getElementById('btnCopyShare')?.addEventListener('click', () => {
-        const link = document.getElementById('shareLink').value;
-        navigator.clipboard.writeText(link).then(() => {
-            showNotification("Đã copy link chia sẻ!", "success");
-            closeModal('modalShare');
-        });
-    });
-    document.getElementById('btnCloseShare')?.addEventListener('click', () => closeModal('modalShare'));
-
-    // 9. Xác nhận Xóa
-    document.getElementById('btnCancelDelete')?.addEventListener('click', () => {
-        closeModal('modalDelete');
-        window.deleteIndex = -1;
-    });
-    document.getElementById('btnConfirmDelete')?.addEventListener('click', () => {
+    bindClick('btnCancelDelete', () => { closeModal('modalDelete'); window.deleteIndex = -1; });
+    bindClick('btnConfirmDelete', () => {
         if (window.deleteIndex !== undefined && window.deleteIndex > -1) {
             accounts.splice(window.deleteIndex, 1);
             saveData(); renderAccounts(); autoSync();
             showNotification("Đã xóa tài khoản!", "success");
-            closeModal('modalDelete');
-            window.deleteIndex = -1;
+            closeModal('modalDelete'); window.deleteIndex = -1;
         }
     });
 
-    // 10. Logout
-    document.getElementById('btnLogout')?.addEventListener('click', () => openModal('modalLogout'));
-    document.getElementById('btnCancelLogout')?.addEventListener('click', () => closeModal('modalLogout'));
-    document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
-        await db.auth.signOut();
-        currentUser = null;
-        localStorage.removeItem('proton_accounts');
-        localStorage.removeItem('proton_settings');
-        sessionStorage.clear();
+    bindClick('btnLogout', () => openModal('modalLogout'));
+    bindClick('btnCancelLogout', () => closeModal('modalLogout'));
+    bindClick('btnConfirmLogout', async () => {
+        await db.auth.signOut(); currentUser = null;
+        localStorage.removeItem('proton_accounts'); localStorage.removeItem('proton_settings'); sessionStorage.clear();
         window.location.href = "/login";
     });
 
-    // 11. Mở khóa App
-    document.getElementById('btnUnlock')?.addEventListener('click', async () => {
+    bindClick('btnUnlock', async () => {
         const pass = document.getElementById('unlockPass').value.trim();
         if (pass === settings.password) {
-            isAppLocked = false; 
-            document.getElementById('lockScreen').classList.add('hidden-lock');
-            document.getElementById('unlockPass').value = '';
-            document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
-            updateCodes(); resetAutoLock(); processPendingShare();
-            return;
+            isAppLocked = false; document.getElementById('lockScreen').classList.add('hidden-lock');
+            document.getElementById('unlockPass').value = ''; document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
+            updateCodes(); resetAutoLock(); return;
         }
         if (settings.biometricId) {
             const success = await authenticateBiometric();
             if (success) {
-                isAppLocked = false; 
-                document.getElementById('lockScreen').classList.add('hidden-lock');
-                document.getElementById('unlockPass').value = '';
-                document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
-                updateCodes(); resetAutoLock(); processPendingShare();
-                showNotification("Mở khóa bằng Vân tay thành công!", "success");
-                return;
+                isAppLocked = false; document.getElementById('lockScreen').classList.add('hidden-lock');
+                document.getElementById('unlockPass').value = ''; document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
+                updateCodes(); resetAutoLock(); showNotification("Mở khóa bằng Vân tay thành công!", "success"); return;
             }
         }
         showNotification("Mật khẩu không chính xác!", "error");
     });
 
-    document.getElementById('unlockPass')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') document.getElementById('btnUnlock').click();
-    });
+    const unlockPass = document.getElementById('unlockPass');
+    if (unlockPass) {
+        unlockPass.replaceWith(unlockPass.cloneNode(true));
+        document.getElementById('unlockPass').addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('btnUnlock').click(); });
+    }
 
-    document.getElementById('btnBiometricUnlock')?.addEventListener('click', async () => {
+    bindClick('btnBiometricUnlock', async () => {
         const success = await authenticateBiometric();
         if (success) {
-            isAppLocked = false; 
-            document.getElementById('lockScreen').classList.add('hidden-lock');
-            document.getElementById('unlockPass').value = '';
-            document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
-            updateCodes(); resetAutoLock(); processPendingShare();
-            showNotification("Mở khóa bằng Vân tay thành công!", "success");
+            isAppLocked = false; document.getElementById('lockScreen').classList.add('hidden-lock');
+            document.getElementById('unlockPass').value = ''; document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
+            updateCodes(); resetAutoLock(); showNotification("Mở khóa bằng Vân tay thành công!", "success");
         } else { showNotification("Xác thực Vân tay thất bại!", "error"); }
     });
 
-    // 12. Đổi mật khẩu
-    document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
+    bindClick('btnChangePassword', async () => {
         if (!checkLogin()) return;
         const oldPass = document.getElementById('oldPassword').value.trim();
         const newPass = document.getElementById('newPassword').value.trim();
@@ -728,11 +524,7 @@ function bindAllEvents() {
             const { error: updateError } = await db.auth.updateUser({ password: newPass });
             if (updateError) throw updateError;
             showNotification("Đổi mật khẩu thành công!", "success");
-            document.getElementById('oldPassword').value = '';
-            document.getElementById('newPassword').value = '';
+            document.getElementById('oldPassword').value = ''; document.getElementById('newPassword').value = '';
         } catch (err) { showNotification("Lỗi đổi mật khẩu!", "error"); }
     });
-
-    // 13. Cài Vân tay
-    document.getElementById('btnSetupBiometric')?.addEventListener('click', registerBiometric);
 }
