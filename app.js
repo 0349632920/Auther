@@ -163,32 +163,32 @@ async function generateOTP(secret, offset = 0) {
 }
 
 // ==========================================
-// XỬ LÝ LINK CHIA SẺ (CÓ KIỂM TRA TRÙNG LẶP)
+// XỬ LÝ LINK CHIA SẺ BẰNG GUI
 // ==========================================
 function processPendingShare() {
     if (!pendingShareSecret || !pendingShareName) return;
-    if (isAppLocked) return; // Chưa mở khóa thì chưa xử lý
+    if (isAppLocked) return; // Chưa mở khóa thì chưa hiện GUI
 
     // Kiểm tra xem mã này đã có trong danh sách chưa
     const isDuplicate = accounts.some(a => a.secret === pendingShareSecret || a.name === pendingShareName);
     
     if (isDuplicate) {
         showNotification(`Tài khoản "${pendingShareName}" đã có sẵn trong danh sách!`, "error");
+        pendingShareSecret = null;
+        pendingShareName = null;
+        window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-        // Nếu chưa có, hỏi người dùng có muốn thêm không
-        if (confirm(`Bạn có muốn thêm tài khoản "${pendingShareName}" từ link chia sẻ không?`)) {
-            accounts.push({ name: pendingShareName, secret: pendingShareSecret });
-            saveData(); renderAccounts(); autoSync();
-            showNotification("Đã thêm tài khoản từ link chia sẻ!", "success");
-        }
+        // Nếu chưa có, hiển thị Modal GUI
+        document.getElementById('shareConfirmName').textContent = pendingShareName;
+        document.getElementById('modalShareConfirm').classList.remove('hidden');
+        document.getElementById('modalShareConfirm').classList.add('flex');
+        setTimeout(() => { document.getElementById('modalShareConfirmContent').style.transform = 'scale(1)'; }, 50);
     }
-    
-    // Xóa thông tin chờ xử lý
-    pendingShareSecret = null;
-    pendingShareName = null;
-    window.history.replaceState({}, document.title, window.location.pathname);
 }
 
+// ==========================================
+// KHỞI TẠO
+// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
@@ -201,15 +201,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shareSecret = urlParams.get('share_secret');
     const shareName = urlParams.get('share_name');
     if (shareSecret && shareName) {
-        // Lưu vào biến tạm, KHÔNG hiển thị confirm ngay
         pendingShareSecret = atob(shareSecret);
         pendingShareName = shareName;
         
-        // Nếu App KHÔNG bị khóa (không có mật khẩu), xử lý luôn
+        // Nếu App KHÔNG bị khóa, hiển thị GUI luôn
         if (!isAppLocked) {
             processPendingShare();
         }
-        // Nếu App bị khóa, đợi đến khi mở khóa xong sẽ xử lý
     }
     
     // Kéo thả
@@ -358,6 +356,7 @@ document.addEventListener('visibilitychange', () => {
 // GẮN SỰ KIỆN CHO TẤT CẢ CÁC NÚT
 // ==========================================
 function setupEventListeners() {
+    // 1. Nút Thêm (Add)
     document.getElementById('btnAdd')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
@@ -395,6 +394,7 @@ function setupEventListeners() {
         document.getElementById('btnCancelAdd')?.click();
     });
 
+    // 2. Nút Quét QR
     document.getElementById('btnScanQR')?.addEventListener('click', () => {
         document.getElementById('modalQR').classList.remove('hidden');
         document.getElementById('modalQR').classList.add('flex');
@@ -436,6 +436,7 @@ function setupEventListeners() {
         }
     });
 
+    // 3. Nút Profile
     document.getElementById('btnUser')?.addEventListener('click', () => {
         if (currentUser) {
             document.getElementById('modalProfile').classList.remove('hidden');
@@ -452,6 +453,7 @@ function setupEventListeners() {
         }, 200);
     });
 
+    // 4. Nút Import
     document.getElementById('btnImport')?.addEventListener('click', () => {
         if (!checkLogin() || isAppLocked) return;
         const input = document.createElement('input');
@@ -499,6 +501,7 @@ function setupEventListeners() {
         input.click();
     });
 
+    // 5. Nút Cài đặt (Settings)
     document.getElementById('btnSettings')?.addEventListener('click', () => {
         if (!checkLogin() || isAppLocked) return;
         document.getElementById('inputPassword').value = settings.password;
@@ -542,6 +545,7 @@ function setupEventListeners() {
         showNotification("Đã lưu cài đặt!", "success");
     });
 
+    // 6. Nút Xuất File (Export)
     document.getElementById('btnExport')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
@@ -558,6 +562,7 @@ function setupEventListeners() {
         showNotification("Đã xuất file JSON thành công!", "success");
     });
 
+    // 7. Nút Chia sẻ (Gửi link)
     window.openShareModal = function(secret, name) {
         if (!checkLogin()) return;
         const encodedSecret = btoa(secret);
@@ -582,6 +587,35 @@ function setupEventListeners() {
         });
     });
 
+    // 8. Xử lý Modal Xác nhận thêm từ link chia sẻ
+    document.getElementById('btnCancelShareConfirm')?.addEventListener('click', () => {
+        document.getElementById('modalShareConfirmContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalShareConfirm').classList.add('hidden');
+            document.getElementById('modalShareConfirm').classList.remove('flex');
+        }, 200);
+        pendingShareSecret = null;
+        pendingShareName = null;
+        window.history.replaceState({}, document.title, window.location.pathname);
+    });
+
+    document.getElementById('btnAcceptShareConfirm')?.addEventListener('click', () => {
+        if (pendingShareSecret && pendingShareName) {
+            accounts.push({ name: pendingShareName, secret: pendingShareSecret });
+            saveData(); renderAccounts(); autoSync();
+            showNotification("Đã thêm tài khoản từ link chia sẻ!", "success");
+        }
+        document.getElementById('modalShareConfirmContent').style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            document.getElementById('modalShareConfirm').classList.add('hidden');
+            document.getElementById('modalShareConfirm').classList.remove('flex');
+        }, 200);
+        pendingShareSecret = null;
+        pendingShareName = null;
+        window.history.replaceState({}, document.title, window.location.pathname);
+    });
+
+    // 9. Nút Đăng xuất
     document.getElementById('btnLogout')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         document.getElementById('modalLogout').classList.remove('hidden');
@@ -606,6 +640,7 @@ function setupEventListeners() {
         window.location.href = "/login";
     });
 
+    // 10. Nút Xóa (Delete)
     window.openDeleteModal = function(index) {
         if (!checkLogin() || isAppLocked) return;
         deleteIndex = index;
@@ -637,6 +672,7 @@ function setupEventListeners() {
         }
     });
 
+    // 11. Màn hình khóa
     document.getElementById('btnUnlock')?.addEventListener('click', () => {
         const pass = document.getElementById('unlockPass').value.trim();
         if (pass === settings.password) {
@@ -657,6 +693,7 @@ function setupEventListeners() {
         if (e.key === 'Enter') document.getElementById('btnUnlock').click();
     });
 
+    // 12. Đổi mật khẩu
     document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
         if (!checkLogin()) return;
         const oldPass = document.getElementById('oldPassword').value.trim();
