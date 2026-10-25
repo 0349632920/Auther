@@ -28,7 +28,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
     
     <style>
         #lockScreen { position: fixed; inset: 0; background: #F2F4F5; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; }
@@ -74,10 +74,22 @@
             from { opacity: 0; transform: scale(0.92); }
             to   { opacity: 1; transform: scale(1); }
         }
+
+        /* Icon container */
+        .hello-icon-container {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Spinner (loading) */
         .hello-spinner {
             width: 60px;
             height: 60px;
-            margin: 0 auto;
             border: 4px solid rgba(255, 255, 255, 0.2);
             border-top-color: #00A2FF;
             border-radius: 50%;
@@ -86,11 +98,41 @@
         @keyframes helloSpin {
             to { transform: rotate(360deg); }
         }
+
+        /* Icon kết quả (thành công / thất bại) */
+        .hello-result-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: #fff;
+            animation: helloPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .hello-result-icon.success {
+            background: linear-gradient(135deg, #10B981, #059669);
+            box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.2), 0 8px 24px rgba(16, 185, 129, 0.4);
+        }
+        .hello-result-icon.error {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.2), 0 8px 24px rgba(239, 68, 68, 0.4);
+        }
+        @keyframes helloPopIn {
+            0%   { transform: scale(0); opacity: 0; }
+            60%  { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
         .hello-loading-text {
             font-size: 18px;
             font-weight: 700;
             margin: 22px 0 8px;
         }
+        .hello-loading-text.text-success { color: #6EE7B7; }
+        .hello-loading-text.text-error   { color: #FCA5A5; }
+
         .hello-loading-subtext {
             font-size: 13px;
             color: rgba(255, 255, 255, 0.7);
@@ -107,9 +149,14 @@
     <!-- ===== OVERLAY LOADING WINDOWS HELLO ===== -->
     <div id="helloLoadingOverlay" class="hello-overlay hidden">
         <div class="hello-overlay-content">
-            <div class="hello-spinner"></div>
-            <p class="hello-loading-text">Đang xác thực Windows Hello...</p>
-            <p class="hello-loading-subtext">Vui lòng không đóng cửa sổ này</p>
+            <div class="hello-icon-container">
+                <!-- Spinner (hiện khi đang xử lý) -->
+                <div id="helloSpinner" class="hello-spinner"></div>
+                <!-- Icon kết quả (ẩn mặc định) -->
+                <div id="helloResultIcon" class="hello-result-icon hidden"></div>
+            </div>
+            <p id="helloLoadingText" class="hello-loading-text">Đang xác thực Windows Hello...</p>
+            <p id="helloLoadingSubtext" class="hello-loading-subtext">Vui lòng không đóng cửa sổ này</p>
         </div>
     </div>
     <!-- ===== END OVERLAY ===== -->
@@ -249,6 +296,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>
