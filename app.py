@@ -7,19 +7,6 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/login')
-def login_page():
-    return send_from_directory('.', 'login.html')
-
-@app.route('/register')
-def register_page():
-    return send_from_directory('.', 'register.html')
-
-# Thêm route health check để chống Render bị ngủ
-@app.route('/health')
-def health():
-    return "OK", 200
-
 @app.route('/<path:path>')
 def serve_static(path):
     if os.path.exists(path):
