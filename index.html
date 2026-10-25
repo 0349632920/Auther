@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authenticator - Bảo mật 2FA</title>
     
+    <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +27,9 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="style.css">
+    
+    <!-- Đã thêm ?v=2 để chống lưu Cache -->
+    <link rel="stylesheet" href="style.css?v=2">
     
     <style>
         #lockScreen { position: fixed; inset: 0; background: #F2F4F5; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; }
@@ -179,7 +182,7 @@
         </div>
     </div>
 
-    <!-- Nhúng file Javascript -->
-    <script src="app.js"></script>
+    <!-- Đã thêm ?v=2 để chống lưu Cache -->
+    <script src="app.js?v=2"></script>
 </body>
 </html>
