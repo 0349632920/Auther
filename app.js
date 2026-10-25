@@ -12,181 +12,7 @@ let autoLockTimer;
 let html5QrCode = null;
 
 // ==========================================
-// PHÁT HIỆN HỆ ĐIỀU HÀNH
-// ==========================================
-const DEVICE = {
-    os: 'unknown', osLabel: 'Không xác định', osIcon: 'fa-question-circle',
-    browser: 'unknown', browserLabel: '',
-    isMobile: false, isTablet: false, isDesktop: false, isTouch: false,
-    biometricName: 'sinh trắc học', biometricLabel: 'sinh trắc học', biometricIcon: 'fa-fingerprint',
-    webauthnSupported: false, platformAuthenticatorAvailable: false, isSecureContext: false,
-};
-
-function detectDevice() {
-    const ua = navigator.userAgent || '';
-    const platform = navigator.platform || '';
-    const maxTouch = navigator.maxTouchPoints || 0;
-
-    DEVICE.isTouch = maxTouch > 0 || ('ontouchstart' in window);
-    DEVICE.isMobile = /Android|iPhone|iPod|Windows Phone|IEMobile|Opera Mini/i.test(ua) && !/iPad/i.test(ua);
-    DEVICE.isTablet = /iPad/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua));
-    DEVICE.isDesktop = !DEVICE.isMobile && !DEVICE.isTablet;
-
-    if (/Windows NT 10|Windows NT 11/i.test(ua)) {
-        DEVICE.os = 'windows'; DEVICE.osLabel = 'Windows'; DEVICE.osIcon = 'fa-brands fa-windows';
-        DEVICE.biometricName = 'Windows Hello'; DEVICE.biometricIcon = 'fa-fingerprint';
-    } else if (/Windows/i.test(ua)) {
-        DEVICE.os = 'windows'; DEVICE.osLabel = 'Windows'; DEVICE.osIcon = 'fa-brands fa-windows';
-        DEVICE.biometricName = 'Windows Hello'; DEVICE.biometricIcon = 'fa-fingerprint';
-    } else if (/iPhone|iPod/i.test(ua)) {
-        DEVICE.os = 'ios'; DEVICE.osLabel = 'iOS'; DEVICE.osIcon = 'fa-brands fa-apple';
-        DEVICE.biometricName = 'Face ID / Touch ID'; DEVICE.biometricIcon = 'fa-face-smile';
-    } else if (/iPad/i.test(ua) || (/Macintosh/i.test(ua) && maxTouch > 1)) {
-        DEVICE.os = 'ipados'; DEVICE.osLabel = 'iPadOS'; DEVICE.osIcon = 'fa-brands fa-apple';
-        DEVICE.biometricName = 'Face ID / Touch ID'; DEVICE.biometricIcon = 'fa-face-smile';
-    } else if (/Mac OS X|Macintosh/i.test(ua)) {
-        DEVICE.os = 'macos'; DEVICE.osLabel = 'macOS'; DEVICE.osIcon = 'fa-brands fa-apple';
-        DEVICE.biometricName = 'Touch ID'; DEVICE.biometricIcon = 'fa-fingerprint';
-    } else if (/Android/i.test(ua)) {
-        DEVICE.os = 'android'; DEVICE.osLabel = 'Android'; DEVICE.osIcon = 'fa-brands fa-android';
-        DEVICE.biometricName = 'Vân tay / Khuôn mặt'; DEVICE.biometricIcon = 'fa-fingerprint';
-    } else if (/CrOS/i.test(ua)) {
-        DEVICE.os = 'chromeos'; DEVICE.osLabel = 'ChromeOS'; DEVICE.osIcon = 'fa-brands fa-chrome';
-        DEVICE.biometricName = 'sinh trắc học'; DEVICE.biometricIcon = 'fa-fingerprint';
-    } else if (/Linux/i.test(ua) || /Linux/i.test(platform)) {
-        DEVICE.os = 'linux'; DEVICE.osLabel = 'Linux'; DEVICE.osIcon = 'fa-brands fa-linux';
-        DEVICE.biometricName = 'Khóa bảo mật'; DEVICE.biometricIcon = 'fa-key';
-    }
-
-    if (/Edg\//i.test(ua)) { DEVICE.browser = 'edge'; DEVICE.browserLabel = 'Edge'; }
-    else if (/OPR\/|Opera/i.test(ua)) { DEVICE.browser = 'opera'; DEVICE.browserLabel = 'Opera'; }
-    else if (/Chrome/i.test(ua) && !/Edg|OPR/i.test(ua)) { DEVICE.browser = 'chrome'; DEVICE.browserLabel = 'Chrome'; }
-    else if (/Firefox/i.test(ua)) { DEVICE.browser = 'firefox'; DEVICE.browserLabel = 'Firefox'; }
-    else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) { DEVICE.browser = 'safari'; DEVICE.browserLabel = 'Safari'; }
-    else { DEVICE.browser = 'other'; DEVICE.browserLabel = 'Khác'; }
-
-    DEVICE.isSecureContext = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    DEVICE.webauthnSupported = !!(window.PublicKeyCredential && navigator.credentials);
-    DEVICE.biometricLabel = `Dùng ${DEVICE.biometricName}`;
-}
-
-function applyDeviceToUI() {
-    const btnLabel = document.getElementById('biometricBtnLabel');
-    const btnIcon = document.getElementById('biometricBtnIcon');
-    if (btnLabel) btnLabel.textContent = DEVICE.biometricLabel;
-    if (btnIcon) btnIcon.className = `fas ${DEVICE.biometricIcon} text-xl`;
-
-    const badgeHTML = `<i class="${DEVICE.osIcon}"></i> ${DEVICE.osLabel} · ${DEVICE.browserLabel}`;
-    ['osBadgeLock', 'osBadgeSettings'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.innerHTML = badgeHTML; el.classList.remove('hidden'); }
-    });
-
-    const infoEl = document.getElementById('osDeviceInfo');
-    if (infoEl) {
-        const type = DEVICE.isTablet ? 'Máy tính bảng' : (DEVICE.isMobile ? 'Điện thoại' : 'Máy tính');
-        infoEl.textContent = `(${type}${DEVICE.isTouch ? ' · Cảm ứng' : ''})`;
-    }
-
-    const supportText = document.getElementById('biometricSupportText');
-    if (supportText) {
-        if (!DEVICE.webauthnSupported) supportText.textContent = 'Thiết bị không hỗ trợ WebAuthn';
-        else if (!DEVICE.isSecureContext) supportText.textContent = 'Cần HTTPS hoặc localhost';
-        else supportText.textContent = `${DEVICE.biometricName} trên ${DEVICE.osLabel}`;
-    }
-
-    const setupBtn = document.getElementById('btnSetupBiometric');
-    if (setupBtn) {
-        if (!DEVICE.webauthnSupported || !DEVICE.isSecureContext) {
-            setupBtn.disabled = true;
-            setupBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            setupBtn.textContent = 'Không hỗ trợ';
-        } else {
-            setupBtn.disabled = false;
-            setupBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            setupBtn.textContent = settings.biometricId ? 'Đã cài đặt' : 'Cài đặt';
-        }
-    }
-}
-
-async function checkPlatformAuthenticator() {
-    if (!DEVICE.webauthnSupported) return false;
-    try {
-        if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-            DEVICE.platformAuthenticatorAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-        }
-    } catch (e) { DEVICE.platformAuthenticatorAvailable = false; }
-    return DEVICE.platformAuthenticatorAvailable;
-}
-
-async function updateBiometricVisibility() {
-    const btn = document.getElementById('btnBiometricUnlock');
-    if (!btn) return;
-    const supported = await checkPlatformAuthenticator();
-    const hasCredential = !!settings.biometricId;
-    if (hasCredential && supported && DEVICE.isSecureContext) btn.classList.remove('hidden');
-    else btn.classList.add('hidden');
-}
-
-// ==========================================
-// OVERLAY WINDOWS HELLO
-// ==========================================
-function showHelloLoading(text, subtext) {
-    const overlay = document.getElementById('helloLoadingOverlay');
-    if (!overlay) return;
-    const spinner = document.getElementById('helloSpinner');
-    const resultIcon = document.getElementById('helloResultIcon');
-    const textEl = document.getElementById('helloLoadingText');
-    const subtextEl = document.getElementById('helloLoadingSubtext');
-    if (spinner) spinner.classList.remove('hidden');
-    if (resultIcon) { resultIcon.classList.add('hidden'); resultIcon.className = 'hello-result-icon hidden'; resultIcon.innerHTML = ''; }
-    if (textEl) { textEl.textContent = text || `Đang xác thực ${DEVICE.biometricName}...`; textEl.className = 'hello-loading-text'; }
-    if (subtextEl && subtext !== undefined) subtextEl.textContent = subtext;
-    overlay.classList.remove('hidden');
-    document.body.classList.add('hello-locked');
-}
-function showHelloSuccess(text = 'Xác thực thành công!', subtext = 'Đang mở khóa ứng dụng...') {
-    const overlay = document.getElementById('helloLoadingOverlay');
-    if (!overlay) return;
-    const spinner = document.getElementById('helloSpinner');
-    const resultIcon = document.getElementById('helloResultIcon');
-    const textEl = document.getElementById('helloLoadingText');
-    const subtextEl = document.getElementById('helloLoadingSubtext');
-    if (spinner) spinner.classList.add('hidden');
-    if (resultIcon) { resultIcon.classList.remove('hidden'); resultIcon.className = 'hello-result-icon success'; resultIcon.innerHTML = '<i class="fas fa-check"></i>'; }
-    if (textEl) { textEl.textContent = text; textEl.className = 'hello-loading-text text-success'; }
-    if (subtextEl) subtextEl.textContent = subtext;
-    overlay.classList.remove('hidden');
-    document.body.classList.add('hello-locked');
-}
-function showHelloError(text = 'Xác thực thất bại!', subtext = 'Vui lòng thử lại') {
-    const overlay = document.getElementById('helloLoadingOverlay');
-    if (!overlay) return;
-    const spinner = document.getElementById('helloSpinner');
-    const resultIcon = document.getElementById('helloResultIcon');
-    const textEl = document.getElementById('helloLoadingText');
-    const subtextEl = document.getElementById('helloLoadingSubtext');
-    if (spinner) spinner.classList.add('hidden');
-    if (resultIcon) { resultIcon.classList.remove('hidden'); resultIcon.className = 'hello-result-icon error'; resultIcon.innerHTML = '<i class="fas fa-times"></i>'; }
-    if (textEl) { textEl.textContent = text; textEl.className = 'hello-loading-text text-error'; }
-    if (subtextEl) subtextEl.textContent = subtext;
-    overlay.classList.remove('hidden');
-    document.body.classList.add('hello-locked');
-}
-function hideHelloLoading() {
-    const overlay = document.getElementById('helloLoadingOverlay');
-    if (!overlay) return;
-    overlay.classList.add('hidden');
-    document.body.classList.remove('hello-locked');
-}
-
-window.showHelloLoading = showHelloLoading;
-window.showHelloSuccess = showHelloSuccess;
-window.showHelloError = showHelloError;
-window.hideHelloLoading = hideHelloLoading;
-
-// ==========================================
-// HIỆU ỨNG GỬI MẬT KHẨU
+// [MỚI] HIỆU ỨNG GỬI MẬT KHẨU
 // ==========================================
 function playSendPasswordEffect(password, callback) {
     const wrapper = document.getElementById('unlockWrapper');
@@ -237,16 +63,14 @@ function playSendPasswordEffect(password, callback) {
 }
 
 // ==========================================
-// [MỚI] HIỆU ỨNG MỞ KHÓA THÀNH CÔNG
+// [MỚI] HIỆU ỨNG MỞ KHÓA THÀNH CÔNG (tick xanh)
 // ==========================================
 function playUnlockSuccessEffect(callback) {
     const lockScreen = document.getElementById('lockScreen');
     if (!lockScreen) { callback && callback(); return; }
 
-    // 1. Fade out lockScreen
     lockScreen.classList.add('unlocking');
 
-    // 2. Tạo overlay thành công
     const overlay = document.createElement('div');
     overlay.className = 'unlock-success-overlay';
     overlay.innerHTML = `
@@ -259,7 +83,6 @@ function playUnlockSuccessEffect(callback) {
     `;
     document.body.appendChild(overlay);
 
-    // 3. Tia sáng bắn ra xung quanh icon
     setTimeout(() => {
         const burst = overlay.querySelector('.check-burst');
         if (!burst) return;
@@ -276,10 +99,8 @@ function playUnlockSuccessEffect(callback) {
         }
     }, 300);
 
-    // 4. Sau 1.4s → fade out overlay + dọn lockScreen
     setTimeout(() => {
         overlay.classList.add('fade-out');
-
         setTimeout(() => {
             overlay.remove();
             lockScreen.classList.add('hidden-lock');
@@ -328,7 +149,7 @@ function resetAutoLock() {
     autoLockTimer = setTimeout(() => {
         isAppLocked = true;
         document.getElementById('lockScreen')?.classList.remove('hidden-lock');
-        updateBiometricVisibility();
+        if (settings.biometricId) document.getElementById('btnBiometricUnlock')?.classList.remove('hidden');
         updateCodes();
     }, 5 * 60 * 1000);
 }
@@ -336,7 +157,7 @@ document.addEventListener('mousemove', resetAutoLock);
 document.addEventListener('keydown', resetAutoLock);
 
 // ==========================================
-// MÃ HÓA
+// MÃ HÓA LOCAL
 // ==========================================
 function encryptData(text, password) {
     if (!password) return text; 
@@ -362,6 +183,9 @@ function loadSettings() {
                 isAppLocked = true;
                 if (document.getElementById('lockScreen')) {
                     document.getElementById('lockScreen').classList.remove('hidden-lock');
+                    if (settings.biometricId) {
+                        document.getElementById('btnBiometricUnlock')?.classList.remove('hidden');
+                    }
                 }
             }
         } catch(e) {}
@@ -407,7 +231,7 @@ function saveData() {
 }
 
 // ==========================================
-// OTP
+// THUẬT TOÁN OTP & WEBAUTHN
 // ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
@@ -423,11 +247,13 @@ function base32Decode(base32) {
     }
     return output.subarray(0, index);
 }
+
 async function hmacSha1(key, message) {
     const cryptoKey = await window.crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
     const signature = await window.crypto.subtle.sign('HMAC', cryptoKey, message);
     return new Uint8Array(signature);
 }
+
 async function generateOTP(secret, offset = 0) {
     try {
         let cleanSecret = secret.toUpperCase().replace(/[^A-Z2-7]/g, '');
@@ -444,79 +270,35 @@ async function generateOTP(secret, offset = 0) {
     } catch (e) { return "Error"; }
 }
 
-// ==========================================
-// SINH TRẮC HỌC
-// ==========================================
 async function registerBiometric() {
-    if (!DEVICE.webauthnSupported) { showNotification(`Thiết bị không hỗ trợ ${DEVICE.biometricName}.`, "error"); return; }
-    if (!DEVICE.isSecureContext) { showNotification("Cần HTTPS hoặc localhost.", "error"); return; }
-    showHelloLoading(`Đang kết nối ${DEVICE.biometricName}...`, 'Vui lòng không đóng cửa sổ này');
+    if (!window.PublicKeyCredential) return showNotification("Trình duyệt không hỗ trợ Windows Hello.", "error");
     try {
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
-        const options = {
+        const publicKeyCredentialCreationOptions = {
             challenge: challenge,
-            rp: { name: "Authenticator", id: window.location.hostname || "localhost" },
-            user: {
-                id: Uint8Array.from("user-id-" + Date.now(), c => c.charCodeAt(0)),
-                name: currentUser?.email || "user@example.com",
-                displayName: currentUser?.email?.split('@')[0] || "User"
-            },
-            pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
-            authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "preferred" },
-            timeout: 60000, attestation: "none"
+            rp: { name: "Authenticator Clone", id: window.location.hostname || "localhost" },
+            user: { id: Uint8Array.from("user-id-123", c => c.charCodeAt(0)), name: "user@example.com", displayName: "User" },
+            pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+            authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+            timeout: 60000, attestation: "direct"
         };
-        showHelloLoading(`Đang chờ ${DEVICE.biometricName}...`, 'Hãy làm theo hướng dẫn trên màn hình');
-        const credential = await navigator.credentials.create({ publicKey: options });
+        const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
         settings.biometricId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
         saveSettings();
-        showHelloSuccess('Cài đặt thành công!', `Bạn có thể dùng ${DEVICE.biometricName} để mở khóa`);
-        showNotification(`Cài đặt ${DEVICE.biometricName} thành công!`, "success");
-        setTimeout(() => { hideHelloLoading(); updateBiometricVisibility(); }, 1200);
-    } catch (err) {
-        console.error('[Biometric Register]', err);
-        let msg = 'Cài đặt thất bại!', sub = 'Vui lòng thử lại';
-        if (err.name === 'NotAllowedError') { msg = 'Bạn đã hủy cài đặt!'; sub = 'Thao tác đã bị hủy'; }
-        else if (err.name === 'SecurityError') { msg = 'Yêu cầu HTTPS!'; sub = 'Sinh trắc học cần HTTPS hoặc localhost'; }
-        else if (err.name === 'AbortError') { msg = 'Quá thời gian chờ!'; sub = 'Vui lòng thử lại (60s)'; }
-        else if (err.name === 'InvalidStateError') { msg = 'Đã cài đặt rồi!'; sub = 'Thiết bị này đã có credential'; }
-        showHelloError(msg, sub);
-        showNotification(msg, "error");
-        setTimeout(hideHelloLoading, 1500);
-    }
+        showNotification("Cài đặt Windows Hello thành công!", "success");
+    } catch (err) { showNotification("Lỗi cài đặt Vân tay. Hãy chắc chắn bạn đang dùng HTTPS.", "error"); }
 }
 
 async function authenticateBiometric() {
     if (!settings.biometricId) return false;
-    showHelloLoading(`Đang kết nối ${DEVICE.biometricName}...`, 'Vui lòng không đóng cửa sổ này');
     try {
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
         const rawId = new Uint8Array(atob(settings.biometricId).split("").map(c => c.charCodeAt(0)));
-        showHelloLoading(`Đang chờ ${DEVICE.biometricName}...`, 'Hãy xác thực để mở khóa');
-        await navigator.credentials.get({
-            publicKey: {
-                challenge: challenge,
-                allowCredentials: [{ id: rawId, type: 'public-key', transports: ['internal', 'hybrid', 'usb', 'nfc', 'ble'] }],
-                userVerification: "required", timeout: 60000
-            }
-        });
-        showHelloSuccess('Xác thực thành công!', 'Đang mở khóa ứng dụng...');
-        await new Promise(r => setTimeout(r, 800));
-        hideHelloLoading();
+        await navigator.credentials.get({ publicKey: { challenge: challenge, allowCredentials: [{ id: rawId, type: 'public-key', transports: ['internal'] }], userVerification: "required", timeout: 60000 } });
         return true;
-    } catch (err) {
-        console.error('[Biometric Auth]', err);
-        let msg = 'Xác thực thất bại!', sub = 'Vui lòng thử lại';
-        if (err.name === 'NotAllowedError') { msg = 'Bạn đã hủy xác thực!'; sub = 'Thao tác đã bị hủy'; }
-        else if (err.name === 'SecurityError') { msg = 'Yêu cầu HTTPS!'; sub = 'Sinh trắc học cần HTTPS hoặc localhost'; }
-        else if (err.name === 'AbortError') { msg = 'Quá thời gian chờ!'; sub = 'Vui lòng thử lại (60s)'; }
-        showHelloError(msg, sub);
-        showNotification(msg, "error");
-        await new Promise(r => setTimeout(r, 1200));
-        hideHelloLoading();
-        return false;
-    }
+    } catch (err) { return false; }
 }
 
 function openModal(id) {
@@ -538,16 +320,12 @@ function closeModal(id) {
 // KHỞI TẠO
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-    detectDevice();
-    applyDeviceToUI();
     loadSettings();
     loadData();
-    applyDeviceToUI();
     setInterval(updateCodes, 1000);
     await checkUserSession();
     bindAllEvents();
-    await updateBiometricVisibility();
-
+    
     new Sortable(document.getElementById('sortableGrid'), {
         animation: 150, ghostClass: 'opacity-50',
         onEnd: function (evt) {
@@ -569,6 +347,7 @@ async function checkUserSession() {
             currentUser = session.user;
             document.getElementById('profileEmail').textContent = currentUser.email.replace('@myauth.local', '');
             document.getElementById('iconUser').className = "fas fa-user-circle text-roblox text-xl";
+
             const { data } = await db.from('user_data').select('*').eq('user_id', currentUser.id).maybeSingle();
             if (data) {
                 if (data.accounts && data.accounts.length > 0) { accounts = data.accounts; saveData(); renderAccounts(); }
@@ -584,14 +363,19 @@ async function autoSync() {
     await db.from('user_data').upsert({ user_id: currentUser.id, accounts: accounts, settings: settings });
 }
 
+// ==========================================
+// RENDER
+// ==========================================
 function renderAccounts() {
     accountList.innerHTML = '';
     if (accounts.length === 0) { toggleEmptyState(); return; }
     emptyState.classList.add('hidden');
+    
     accounts.forEach((account, index) => {
         const card = document.createElement('div');
         card.className = `relative card-fade-in roblox-card p-5 cursor-pointer group flex flex-col justify-between min-h-[145px]`;
         card.style.animationDelay = `${index * 0.05}s`;
+        
         card.onclick = (e) => {
             if (e.target.closest('.btn-delete')) return; 
             if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
@@ -599,6 +383,7 @@ function renderAccounts() {
             setTimeout(() => { card.style.transform = ''; }, 150);
             copyCode(account.secret);
         };
+        
         card.innerHTML = `
             <button class="btn-delete absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-300 hover:text-red-500 rounded-full z-10" title="Xóa">
                 <i class="fas fa-trash-alt text-sm"></i>
@@ -636,12 +421,14 @@ async function updateCodes() {
     const now = Math.floor(Date.now() / 1000);
     const remaining = 30 - (now % 30);
     const fraction = remaining / 30;
+    
     document.querySelectorAll('.arc').forEach(arc => {
         arc.style.strokeDasharray = `${fraction * 100}, 100`;
         if (remaining <= 5) { arc.classList.remove('text-roblox'); arc.classList.add('text-red-500'); }
         else { arc.classList.remove('text-red-500'); arc.classList.add('text-roblox'); }
     });
     document.querySelectorAll('.sec-label').forEach(el => { el.textContent = `${remaining}`; });
+    
     document.querySelectorAll('.code-display').forEach(async el => {
         if (isAppLocked) { el.textContent = "••• •••"; return; }
         const secret = el.getAttribute('data-secret');
@@ -680,7 +467,7 @@ document.addEventListener('visibilitychange', () => {
         isAppLocked = true;
         document.getElementById('lockScreen')?.classList.remove('hidden-lock');
         document.getElementById('unlockPass').value = '';
-        updateBiometricVisibility();
+        if (settings.biometricId) document.getElementById('btnBiometricUnlock')?.classList.remove('hidden');
         updateCodes();
     }
 });
@@ -725,14 +512,13 @@ function bindAllEvents() {
         if (!checkLogin() || isAppLocked) return;
         document.getElementById('inputPassword').value = settings.password;
         updateAutoLockUI();
-        applyDeviceToUI();
         openModal('modalSettings');
     });
     bindClick('btnCloseSettings', () => closeModal('modalSettings'));
     bindClick('btnToggleTheme', () => { settings.theme = settings.theme === 'light' ? 'dark' : 'light'; applyTheme(settings.theme); });
     bindClick('btnToggleAutoLock', () => {
         if (!settings.password && !settings.biometricId) {
-            showNotification("Vui lòng nhập mật khẩu hoặc cài sinh trắc học trước!", "error");
+            showNotification("Vui lòng nhập mật khẩu hoặc cài Vân tay trước!", "error");
             document.getElementById('inputPassword').focus(); return;
         }
         settings.autoLock = !settings.autoLock; updateAutoLockUI();
@@ -742,9 +528,7 @@ function bindAllEvents() {
         if (!settings.password && !settings.biometricId) { settings.autoLock = false; updateAutoLockUI(); }
         saveSettings(); autoSync(); closeModal('modalSettings'); showNotification("Đã lưu cài đặt!", "success");
     });
-
     bindClick('btnSetupBiometric', registerBiometric);
-
     bindClick('btnExport', () => {
         if (!checkLogin()) return;
         if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
@@ -757,6 +541,7 @@ function bindAllEvents() {
         showNotification("Đã xuất file JSON thành công!", "success");
     });
 
+    // Xử lý Xóa
     const grid = document.getElementById('sortableGrid');
     if (grid) {
         grid.addEventListener('click', (e) => {
@@ -795,7 +580,7 @@ function bindAllEvents() {
     });
 
     // ========================================
-    // NÚT MỞ KHÓA — CÓ HIỆU ỨNG GỬI + TICK XANH
+    // [MỚI] NÚT MỞ KHÓA — CÓ HIỆU ỨNG
     // ========================================
     bindClick('btnUnlock', () => {
         const input = document.getElementById('unlockPass');
@@ -810,13 +595,13 @@ function bindAllEvents() {
 
         btn.disabled = true;
 
+        // Hiệu ứng gửi mật khẩu → xong mới xác thực
         playSendPasswordEffect(pass, async () => {
             try {
                 // ✅ ĐÚNG MẬT KHẨU → tick xanh, ẩn GUI
                 if (pass === settings.password) {
                     isAppLocked = false;
-                    playUnlockSuccessEffect(async () => {
-                        await updateBiometricVisibility();
+                    playUnlockSuccessEffect(() => {
                         updateCodes();
                         resetAutoLock();
                     });
@@ -825,24 +610,24 @@ function bindAllEvents() {
                     return;
                 }
 
-                // ❌ SAI → thử sinh trắc học
+                // ❌ SAI → thử sinh trắc học nếu có
                 if (settings.biometricId) {
                     const success = await authenticateBiometric();
                     if (success) {
                         isAppLocked = false;
                         document.getElementById('lockScreen').classList.add('hidden-lock');
                         input.value = '';
-                        await updateBiometricVisibility();
+                        document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
                         updateCodes();
                         resetAutoLock();
-                        showNotification("Mở khóa thành công!", "success");
+                        showNotification("Mở khóa bằng Vân tay thành công!", "success");
                         btn.disabled = false;
                         btn.classList.remove('opacity-60');
                         return;
                     }
                 }
 
-                // ❌ SAI HẾT
+                // ❌ SAI HẾT → lắc input + báo lỗi
                 showNotification("Mật khẩu không chính xác!", "error");
                 input.classList.add('animate-shake');
                 setTimeout(() => input.classList.remove('animate-shake'), 500);
@@ -858,24 +643,28 @@ function bindAllEvents() {
         });
     });
 
+    // Enter trong input = bấm nút
     const unlockPass = document.getElementById('unlockPass');
     if (unlockPass) {
         unlockPass.replaceWith(unlockPass.cloneNode(true));
-        document.getElementById('unlockPass').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') document.getElementById('btnUnlock').click();
+        document.getElementById('unlockPass').addEventListener('keypress', (e) => { 
+            if (e.key === 'Enter') document.getElementById('btnUnlock').click(); 
         });
     }
 
+    // Nút Windows Hello (giữ nguyên)
     bindClick('btnBiometricUnlock', async () => {
         const success = await authenticateBiometric();
         if (success) {
-            isAppLocked = false;
+            isAppLocked = false; 
             document.getElementById('lockScreen').classList.add('hidden-lock');
-            document.getElementById('unlockPass').value = '';
-            await updateBiometricVisibility();
-            updateCodes();
-            resetAutoLock();
-            showNotification("Mở khóa thành công!", "success");
+            document.getElementById('unlockPass').value = ''; 
+            document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
+            updateCodes(); 
+            resetAutoLock(); 
+            showNotification("Mở khóa bằng Vân tay thành công!", "success");
+        } else { 
+            showNotification("Xác thực Vân tay thất bại!", "error"); 
         }
     });
 
