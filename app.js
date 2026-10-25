@@ -129,7 +129,7 @@ async function updateBiometricVisibility() {
 }
 
 // ==========================================
-// OVERLAY 3 TRẠNG THÁI (Windows Hello)
+// OVERLAY WINDOWS HELLO
 // ==========================================
 function showHelloLoading(text, subtext) {
     const overlay = document.getElementById('helloLoadingOverlay');
@@ -186,7 +186,7 @@ window.showHelloError = showHelloError;
 window.hideHelloLoading = hideHelloLoading;
 
 // ==========================================
-// [MỚI] HIỆU ỨNG GỬI MẬT KHẨU
+// HIỆU ỨNG GỬI MẬT KHẨU
 // ==========================================
 function playSendPasswordEffect(password, callback) {
     const wrapper = document.getElementById('unlockWrapper');
@@ -194,15 +194,12 @@ function playSendPasswordEffect(password, callback) {
     const btn = document.getElementById('btnUnlock');
     if (!wrapper || !input || !btn) { callback && callback(); return; }
 
-    // 1. Icon nút → spinner
     const iconEl = btn.querySelector('i');
     const oldIconClass = iconEl ? iconEl.className : 'fas fa-arrow-right';
     if (iconEl) iconEl.className = 'fas fa-spinner';
 
-    // 2. Pulse viền input
     input.classList.add('sending');
 
-    // 3. Ripple từ nút
     const rect = btn.getBoundingClientRect();
     const wrapperRect = wrapper.getBoundingClientRect();
     const ripple = document.createElement('span');
@@ -214,13 +211,11 @@ function playSendPasswordEffect(password, callback) {
     ripple.style.top = (rect.top - wrapperRect.top + rect.height / 2 - size / 2) + 'px';
     wrapper.appendChild(ripple);
 
-    // 4. Dots ••••••
     const dots = document.createElement('div');
     dots.className = 'password-mask-dots';
     dots.textContent = '••••••';
     wrapper.appendChild(dots);
 
-    // 5. Chữ • bay lên
     if (password) {
         const fly = document.createElement('div');
         fly.className = 'password-fly';
@@ -228,10 +223,8 @@ function playSendPasswordEffect(password, callback) {
         wrapper.appendChild(fly);
     }
 
-    // 6. Input mờ
     setTimeout(() => input.classList.add('sending-fade'), 200);
 
-    // 7. Dọn dẹp + callback
     setTimeout(() => {
         ripple.remove();
         dots.remove();
@@ -241,6 +234,61 @@ function playSendPasswordEffect(password, callback) {
         if (iconEl) iconEl.className = oldIconClass;
         callback && callback();
     }, 900);
+}
+
+// ==========================================
+// [MỚI] HIỆU ỨNG MỞ KHÓA THÀNH CÔNG
+// ==========================================
+function playUnlockSuccessEffect(callback) {
+    const lockScreen = document.getElementById('lockScreen');
+    if (!lockScreen) { callback && callback(); return; }
+
+    // 1. Fade out lockScreen
+    lockScreen.classList.add('unlocking');
+
+    // 2. Tạo overlay thành công
+    const overlay = document.createElement('div');
+    overlay.className = 'unlock-success-overlay';
+    overlay.innerHTML = `
+        <div class="success-check-icon">
+            <i class="fas fa-check"></i>
+            <div class="check-burst"></div>
+        </div>
+        <div class="success-title">Đã mở khóa!</div>
+        <div class="success-subtitle">Chào mừng trở lại</div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 3. Tia sáng bắn ra xung quanh icon
+    setTimeout(() => {
+        const burst = overlay.querySelector('.check-burst');
+        if (!burst) return;
+        const count = 10;
+        for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 * i) / count;
+            const dist = 80 + Math.random() * 40;
+            const dot = document.createElement('span');
+            dot.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+            dot.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
+            dot.style.animationDelay = `${Math.random() * 0.1}s`;
+            dot.style.background = ['#10B981', '#34D399', '#059669', '#6EE7B7'][i % 4];
+            burst.appendChild(dot);
+        }
+    }, 300);
+
+    // 4. Sau 1.4s → fade out overlay + dọn lockScreen
+    setTimeout(() => {
+        overlay.classList.add('fade-out');
+
+        setTimeout(() => {
+            overlay.remove();
+            lockScreen.classList.add('hidden-lock');
+            lockScreen.classList.remove('unlocking');
+            const input = document.getElementById('unlockPass');
+            if (input) input.value = '';
+            callback && callback();
+        }, 450);
+    }, 1400);
 }
 
 // ==========================================
@@ -397,7 +445,7 @@ async function generateOTP(secret, offset = 0) {
 }
 
 // ==========================================
-// SINH TRẮC HỌC (giữ nguyên)
+// SINH TRẮC HỌC
 // ==========================================
 async function registerBiometric() {
     if (!DEVICE.webauthnSupported) { showNotification(`Thiết bị không hỗ trợ ${DEVICE.biometricName}.`, "error"); return; }
@@ -747,7 +795,7 @@ function bindAllEvents() {
     });
 
     // ========================================
-    // [MỚI] NÚT MỞ KHÓA — CÓ HIỆU ỨNG GỬI MẬT KHẨU
+    // NÚT MỞ KHÓA — CÓ HIỆU ỨNG GỬI + TICK XANH
     // ========================================
     bindClick('btnUnlock', () => {
         const input = document.getElementById('unlockPass');
@@ -760,26 +808,24 @@ function bindAllEvents() {
             return;
         }
 
-        // Tắt nút để tránh bấm liên tục
         btn.disabled = true;
 
-        // Chạy hiệu ứng gửi mật khẩu → xong mới xác thực
         playSendPasswordEffect(pass, async () => {
             try {
-                // ✅ Đúng mật khẩu
+                // ✅ ĐÚNG MẬT KHẨU → tick xanh, ẩn GUI
                 if (pass === settings.password) {
                     isAppLocked = false;
-                    document.getElementById('lockScreen').classList.add('hidden-lock');
-                    input.value = '';
-                    await updateBiometricVisibility();
-                    updateCodes();
-                    resetAutoLock();
+                    playUnlockSuccessEffect(async () => {
+                        await updateBiometricVisibility();
+                        updateCodes();
+                        resetAutoLock();
+                    });
                     btn.disabled = false;
                     btn.classList.remove('opacity-60');
                     return;
                 }
 
-                // ❌ Sai mật khẩu → thử sinh trắc học nếu có
+                // ❌ SAI → thử sinh trắc học
                 if (settings.biometricId) {
                     const success = await authenticateBiometric();
                     if (success) {
@@ -796,7 +842,7 @@ function bindAllEvents() {
                     }
                 }
 
-                // ❌ Sai hết
+                // ❌ SAI HẾT
                 showNotification("Mật khẩu không chính xác!", "error");
                 input.classList.add('animate-shake');
                 setTimeout(() => input.classList.remove('animate-shake'), 500);
@@ -812,7 +858,6 @@ function bindAllEvents() {
         });
     });
 
-    // Enter trong input = bấm nút
     const unlockPass = document.getElementById('unlockPass');
     if (unlockPass) {
         unlockPass.replaceWith(unlockPass.cloneNode(true));
@@ -821,7 +866,6 @@ function bindAllEvents() {
         });
     }
 
-    // Nút sinh trắc học (giữ nguyên)
     bindClick('btnBiometricUnlock', async () => {
         const success = await authenticateBiometric();
         if (success) {
