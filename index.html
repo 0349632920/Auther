@@ -5,18 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authenticator - Bảo mật 2FA</title>
     
-    <!-- Tailwind CSS, FontAwesome, Google Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- THƯ VIỆN MỚI -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script> <!-- Mã hóa -->
-    <script src="https://unpkg.com/html5-qrcode"></script> <!-- Quét QR -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script> <!-- Kéo thả -->
+
+    <!-- Thư viện cho 6 tính năng mới -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -75,7 +72,7 @@
         </div>
     </div>
 
-    <!-- DANH SÁCH TÀI KHOẢN (Có Sortable) -->
+    <!-- DANH SÁCH TÀI KHOẢN -->
     <div id="accountList" class="flex-1 overflow-y-auto px-6 md:px-8 pb-10">
         <div id="sortableGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-max"></div>
         <div id="emptyState" class="flex flex-col items-center justify-center h-full mt-20 hidden opacity-0 transition-opacity duration-500">
@@ -84,7 +81,7 @@
         </div>
     </div>
 
-    <!-- MODAL THÊM TÀI KHOẢN (Có nút Quét QR) -->
+    <!-- MODAL THÊM TÀI KHOẢN -->
     <div id="modalAdd" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalAddContent">
             <div class="flex justify-between items-center mb-5">
@@ -122,7 +119,7 @@
     <div id="modalShare" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="modalShareContent">
             <h2 class="text-xl font-bold mb-2">Chia sẻ tài khoản</h2>
-            <p class="text-gray-500 mb-4 text-sm">Gửi link này cho người khác để họ thêm tài khoản. Link sẽ hết hạn sau 5 phút.</p>
+            <p class="text-gray-500 mb-4 text-sm">Gửi link này cho người khác để họ thêm tài khoản.</p>
             <input type="text" id="shareLink" readonly class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl mb-4 focus:outline-none border border-gray-200 dark:border-gray-700 text-sm">
             <div class="flex justify-end gap-3">
                 <button id="btnCloseShare" class="px-5 py-2.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-100 transition">Đóng</button>
@@ -131,7 +128,7 @@
         </div>
     </div>
 
-    <!-- MODAL CÀI ĐẶT (Thêm nút Export) -->
+    <!-- MODAL CÀI ĐẶT (Có nút Export và AutoLock) -->
     <div id="modalSettings" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalSettingsContent">
             <div class="flex justify-between items-center mb-5">
@@ -147,10 +144,18 @@
                     <div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="themeThumb"></div>
                 </button>
             </div>
+            <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                    <h3 class="font-bold">Tự động khóa khi rời tab</h3>
+                    <p class="text-xs text-gray-500">Bảo vệ mã khi bạn chuyển tab</p>
+                </div>
+                <button id="btnToggleAutoLock" class="w-12 h-7 bg-gray-300 dark:bg-roblox rounded-full relative transition-colors duration-300">
+                    <div class="w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 shadow-sm" id="autoLockThumb"></div>
+                </button>
+            </div>
             <div class="mb-5">
                 <h3 class="font-bold mb-1">Mật khẩu bảo vệ App</h3>
                 <input type="password" id="inputPassword" placeholder="Nhập mật khẩu..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
-                <p class="text-xs text-gray-500 mt-1">Dùng để mã hóa dữ liệu cục bộ và khóa màn hình.</p>
             </div>
             <div class="border-t border-gray-200 dark:border-gray-700 pt-5 flex flex-col gap-3">
                 <button id="btnExport" class="w-full py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition text-sm flex items-center justify-center gap-2">
