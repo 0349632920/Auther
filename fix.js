@@ -4,10 +4,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("🛠️ Đang chạy Fix.js để đảm bảo các nút hoạt động...");
 
-    // Hàm phụ trợ để mở/đóng Modal
     const openModal = (id) => {
         const modal = document.getElementById(id);
-        const content = document.getElementById(id.replace('modal', 'modal') + 'Content'); // VD: modalAdd -> modalAddContent
+        const content = document.getElementById(id + 'Content'); // Sửa lại cách lấy ID content
         if (modal) {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
@@ -17,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const closeModal = (id) => {
         const modal = document.getElementById(id);
-        const content = document.getElementById(id.replace('modal', 'modal') + 'Content');
+        const content = document.getElementById(id + 'Content');
         if (content) content.style.transform = 'scale(0.95)';
         setTimeout(() => {
             if (modal) {
@@ -27,214 +26,131 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 200);
     };
 
-    // 1. Fix nút Thêm (+ Add)
-    const btnAdd = document.getElementById('btnAdd');
-    if (btnAdd) {
-        btnAdd.onclick = null; // Xóa sự kiện cũ (nếu có)
-        btnAdd.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!currentUser) return showNotification("Vui lòng đăng nhập!", "error");
-            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-            openModal('modalAdd');
-        });
-    }
-
-    // 2. Fix nút Đóng Modal Thêm
-    const btnCancelAdd = document.getElementById('btnCancelAdd');
-    if (btnCancelAdd) {
-        btnCancelAdd.onclick = null;
-        btnCancelAdd.addEventListener('click', () => closeModal('modalAdd'));
-    }
-    const btnCloseModal = document.getElementById('btnCloseModal');
-    if (btnCloseModal) {
-        btnCloseModal.onclick = null;
-        btnCloseModal.addEventListener('click', () => closeModal('modalAdd'));
-    }
-
-    // 3. Fix nút Lưu (Lưu tài khoản)
-    const btnSaveAdd = document.getElementById('btnSaveAdd');
-    if (btnSaveAdd) {
-        btnSaveAdd.onclick = null;
-        btnSaveAdd.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('inputName').value.trim();
-            let secret = document.getElementById('inputSecret').value.trim();
-            
-            if (!name || !secret) return showNotification("Vui lòng nhập đủ Tên và Mã!", "error");
-            
-            if (secret.startsWith('otpauth://')) {
-                const match = secret.match(/[?&]secret=([^&]+)/);
-                if (match) secret = decodeURIComponent(match[1]);
-            }
-            
-            accounts.push({ name, secret });
-            saveData(); renderAccounts(); autoSync();
-            showNotification("Đã thêm tài khoản!", "success");
-            
-            document.getElementById('inputName').value = '';
-            document.getElementById('inputSecret').value = '';
-            closeModal('modalAdd');
-        });
-    }
-
-    // 4. Fix nút Profile (User)
-    const btnUser = document.getElementById('btnUser');
-    if (btnUser) {
-        btnUser.onclick = null;
-        btnUser.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (currentUser) {
-                openModal('modalProfile');
-            } else {
-                window.location.href = "/login";
-            }
-        });
-    }
-
-    // 5. Fix nút Đóng Profile
-    const btnCloseProfile = document.getElementById('btnCloseProfile');
-    if (btnCloseProfile) {
-        btnCloseProfile.onclick = null;
-        btnCloseProfile.addEventListener('click', () => closeModal('modalProfile'));
-    }
-
-    // 6. Fix nút Cài đặt (Settings)
-    const btnSettings = document.getElementById('btnSettings');
-    if (btnSettings) {
-        btnSettings.onclick = null;
-        btnSettings.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (!currentUser) return showNotification("Vui lòng đăng nhập!", "error");
-            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-            openModal('modalSettings');
-        });
-    }
-
-    // 7. Fix nút Đóng Cài đặt
-    const btnCloseSettings = document.getElementById('btnCloseSettings');
-    if (btnCloseSettings) {
-        btnCloseSettings.onclick = null;
-        btnCloseSettings.addEventListener('click', () => closeModal('modalSettings'));
-    }
-
-    // 8. Fix nút Import
-    const btnImport = document.getElementById('btnImport');
-    if (btnImport) {
-        btnImport.onclick = null;
-        btnImport.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (!currentUser) return showNotification("Vui lòng đăng nhập!", "error");
-            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-            
-            const input = document.createElement('input');
-            input.type = 'file'; input.accept = '.json';
-            input.onchange = ev => {
-                const file = ev.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = event => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        let extractedAccounts = [];
-                        function scanObject(obj) {
-                            if (!obj) return;
-                            if (Array.isArray(obj)) { obj.forEach(item => scanObject(item)); return; }
-                            if (typeof obj === 'object') {
-                                let name = obj.name || obj.title || obj.issuer || "Tài khoản";
-                                let secret = obj.secret || obj.key || null;
-                                let uri = obj.uri || obj.otpauth || null;
-                                if (!secret && uri && typeof uri === 'string') {
-                                    const match = uri.match(/[?&]secret=([^&]+)/);
-                                    if (match) secret = decodeURIComponent(match[1]);
-                                }
-                                if (secret && typeof secret === 'string') {
-                                    if (!extractedAccounts.some(a => a.secret === secret)) extractedAccounts.push({ name, secret });
-                                }
-                                for (let key in obj) if (typeof obj[key] === 'object') scanObject(obj[key]);
-                            }
-                        }
-                        scanObject(data);
-                        let count = 0;
-                        if (extractedAccounts.length > 0) {
-                            extractedAccounts.forEach(newAcc => {
-                                if (!accounts.find(a => a.secret === newAcc.secret || a.name === newAcc.name)) {
-                                    accounts.push(newAcc); count++;
-                                }
-                            });
-                            if (count > 0) { saveData(); renderAccounts(); autoSync(); showNotification(`Import thành công ${count} tài khoản!`, "success"); }
-                            else { showNotification("Tất cả tài khoản đã có sẵn.", "error"); }
-                        } else { showNotification("Không tìm thấy mã 2FA.", "error"); }
-                    } catch (err) { showNotification("Lỗi đọc file JSON.", "error"); }
-                };
-                reader.readAsText(file);
-            };
-            input.click();
-        });
-    }
-
-    // 9. Fix nút Đăng xuất
-    const btnLogout = document.getElementById('btnLogout');
-    if (btnLogout) {
-        btnLogout.onclick = null;
-        btnLogout.addEventListener('click', (e) => {
-            e.preventDefault();
-            openModal('modalLogout');
-        });
-    }
-    
-    // 10. Fix nút Đóng Đăng xuất
-    const btnCancelLogout = document.getElementById('btnCancelLogout');
-    if (btnCancelLogout) {
-        btnCancelLogout.onclick = null;
-        btnCancelLogout.addEventListener('click', () => closeModal('modalLogout'));
-    }
-
-    // 11. Fix nút Xác nhận Đăng xuất
-    const btnConfirmLogout = document.getElementById('btnConfirmLogout');
-    if (btnConfirmLogout) {
-        btnConfirmLogout.onclick = null;
-        btnConfirmLogout.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await db.auth.signOut();
-            currentUser = null;
-            localStorage.removeItem('proton_accounts');
-            localStorage.removeItem('proton_settings');
-            sessionStorage.clear();
-            window.location.href = "/login";
-        });
-    }
-
-    // 12. Fix nút Xóa (Thùng rác) - Quan trọng
-    window.openDeleteModal = function(index) {
+    // 1. Nút Thêm
+    document.getElementById('btnAdd')?.addEventListener('click', (e) => {
+        e.preventDefault();
         if (!currentUser) return showNotification("Vui lòng đăng nhập!", "error");
         if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
-        deleteIndex = index;
-        const deleteNameEl = document.getElementById('deleteName');
-        if (deleteNameEl) deleteNameEl.textContent = accounts[index].name;
-        openModal('modalDelete');
-    }
-    
-    // 13. Fix nút Đóng Xóa
-    const btnCancelDelete = document.getElementById('btnCancelDelete');
-    if (btnCancelDelete) {
-        btnCancelDelete.onclick = null;
-        btnCancelDelete.addEventListener('click', () => closeModal('modalDelete'));
-    }
+        openModal('modalAdd');
+    });
 
-    // 14. Fix nút Xác nhận Xóa
-    const btnConfirmDelete = document.getElementById('btnConfirmDelete');
-    if (btnConfirmDelete) {
-        btnConfirmDelete.onclick = null;
-        btnConfirmDelete.addEventListener('click', (e) => {
+    document.getElementById('btnCancelAdd')?.addEventListener('click', () => closeModal('modalAdd'));
+    document.getElementById('btnCloseModal')?.addEventListener('click', () => closeModal('modalAdd'));
+
+    document.getElementById('btnSaveAdd')?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('inputName').value.trim();
+        let secret = document.getElementById('inputSecret').value.trim();
+        if (!name || !secret) return showNotification("Vui lòng nhập đủ Tên và Mã!", "error");
+        if (secret.startsWith('otpauth://')) {
+            const match = secret.match(/[?&]secret=([^&]+)/);
+            if (match) secret = decodeURIComponent(match[1]);
+        }
+        accounts.push({ name, secret });
+        saveData(); renderAccounts(); autoSync();
+        showNotification("Đã thêm tài khoản!", "success");
+        document.getElementById('inputName').value = '';
+        document.getElementById('inputSecret').value = '';
+        closeModal('modalAdd');
+    });
+
+    // 2. Nút Profile
+    document.getElementById('btnUser')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentUser) openModal('modalProfile');
+        else window.location.href = "/login";
+    });
+    document.getElementById('btnCloseProfile')?.addEventListener('click', () => closeModal('modalProfile'));
+
+    // 3. Nút Settings
+    document.getElementById('btnSettings')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!currentUser) return showNotification("Vui lòng đăng nhập!", "error");
+        if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
+        document.getElementById('inputPassword').value = settings.password;
+        updateAutoLockUI();
+        openModal('modalSettings');
+    });
+    document.getElementById('btnCloseSettings')?.addEventListener('click', () => closeModal('modalSettings'));
+
+    document.getElementById('btnToggleTheme')?.addEventListener('click', () => {
+        settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+        applyTheme(settings.theme);
+    });
+
+    document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
+        if (!settings.password) {
+            showNotification("Vui lòng nhập mật khẩu bên dưới trước!", "error");
+            document.getElementById('inputPassword').focus();
+            return;
+        }
+        settings.autoLock = !settings.autoLock;
+        updateAutoLockUI();
+    });
+
+    document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
+        settings.password = document.getElementById('inputPassword').value.trim();
+        if (!settings.password) { settings.autoLock = false; updateAutoLockUI(); }
+        saveSettings(); autoSync();
+        closeModal('modalSettings');
+        showNotification("Đã lưu cài đặt!", "success");
+    });
+
+    // 4. Nút Logout
+    document.getElementById('btnLogout')?.addEventListener('click', () => openModal('modalLogout'));
+    document.getElementById('btnCancelLogout')?.addEventListener('click', () => closeModal('modalLogout'));
+    document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
+        await db.auth.signOut();
+        currentUser = null;
+        localStorage.removeItem('proton_accounts');
+        localStorage.removeItem('proton_settings');
+        sessionStorage.clear();
+        window.location.href = "/login";
+    });
+
+    // ==========================================
+    // 5. FIX NÚT XÓA BẰNG EVENT DELEGATION (QUAN TRỌNG)
+    // ==========================================
+    // Lắng nghe sự kiện click trên toàn bộ thẻ chứa danh sách tài khoản
+    document.getElementById('sortableGrid')?.addEventListener('click', (e) => {
+        // Kiểm tra xem phần tử được click có phải là nút xóa (hoặc nằm trong nút xóa) không
+        const deleteBtn = e.target.closest('.btn-delete');
+        if (deleteBtn) {
             e.preventDefault();
-            if (deleteIndex > -1) {
-                accounts.splice(deleteIndex, 1); 
-                saveData(); renderAccounts(); autoSync(); 
-                showNotification("Đã xóa tài khoản!", "success");
-                closeModal('modalDelete');
-                deleteIndex = -1;
+            e.stopPropagation(); // Ngăn việc copy mã khi bấm nút xóa
+
+            if (!currentUser) return showNotification("Vui lòng đăng nhập!", "error");
+            if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng!", "error");
+
+            // Lấy index từ thuộc tính onclick cũ (VD: "openDeleteModal(2)")
+            const onclickAttr = deleteBtn.getAttribute('onclick');
+            if (onclickAttr) {
+                const match = onclickAttr.match(/openDeleteModal\((\d+)\)/);
+                if (match && match[1]) {
+                    const index = parseInt(match[1]);
+                    
+                    // Hiển thị Modal xác nhận xóa
+                    const deleteNameEl = document.getElementById('deleteName');
+                    if (deleteNameEl) deleteNameEl.textContent = accounts[index].name;
+                    
+                    deleteIndex = index; // Gán index toàn cục
+                    openModal('modalDelete');
+                }
             }
-        });
-    }
+        }
+    });
+
+    // 6. Nút Đóng và Xác nhận Xóa
+    document.getElementById('btnCancelDelete')?.addEventListener('click', () => closeModal('modalDelete'));
+
+    document.getElementById('btnConfirmDelete')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (deleteIndex > -1) {
+            accounts.splice(deleteIndex, 1); 
+            saveData(); renderAccounts(); autoSync(); 
+            showNotification("Đã xóa tài khoản!", "success");
+            closeModal('modalDelete');
+            deleteIndex = -1;
+        }
+    });
 });
