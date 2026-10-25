@@ -2,15 +2,16 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#00A2FF">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authenticator - Bảo mật 2FA</title>
     
+    <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
+    <!-- Thư viện mã hóa và kéo thả -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
@@ -27,10 +28,11 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=8">
+    <!-- Đã tăng version để chống lưu Cache -->
+    <link rel="stylesheet" href="style.css?v=3">
     
     <style>
-        #lockScreen { position: fixed; inset: 0; background: #F2F4F5; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; padding: 20px; }
+        #lockScreen { position: fixed; inset: 0; background: #F2F4F5; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; }
         .dark #lockScreen { background: #232527; }
         #lockScreen.hidden-lock { opacity: 0; pointer-events: none; display: none; }
         .roblox-btn { background-color: #00A2FF; border-radius: 8px; font-weight: 600; transition: all 0.2s ease; }
@@ -40,46 +42,12 @@
         .dark .roblox-card { background-color: #393B3D; border: 1px solid #4A4D50; }
         .roblox-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); }
 
-        /* ===== WINDOWS HELLO OVERLAY ===== */
-        .hello-overlay {
-            position: fixed; inset: 0;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 99999; opacity: 1; transition: opacity 0.3s ease; padding: 20px;
-        }
-        .hello-overlay.hidden { display: none; opacity: 0; }
-        .hello-overlay-content {
-            text-align: center; color: #fff;
-            padding: 36px 52px;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            max-width: 90vw; width: 100%;
-            animation: helloFadeIn 0.3s ease;
-        }
-        @keyframes helloFadeIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-        @media (max-width: 480px) {
-            .hello-overlay-content { padding: 28px 24px; border-radius: 16px; max-width: 92vw; }
-            .hello-loading-text { font-size: 16px; }
-            .hello-loading-subtext { font-size: 12px; }
-        }
-        .hello-icon-container { width: 72px; height: 72px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; position: relative; }
-        .hello-spinner { width: 60px; height: 60px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: #00A2FF; border-radius: 50%; animation: helloSpin 0.9s linear infinite; }
-        @keyframes helloSpin { to { transform: rotate(360deg); } }
-        .hello-result-icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; color: #fff; animation: helloPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .hello-result-icon.success { background: linear-gradient(135deg, #10B981, #059669); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.2), 0 8px 24px rgba(16, 185, 129, 0.4); }
-        .hello-result-icon.error { background: linear-gradient(135deg, #EF4444, #DC2626); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.2), 0 8px 24px rgba(239, 68, 68, 0.4); }
-        @keyframes helloPopIn { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-        .hello-loading-text { font-size: 18px; font-weight: 700; margin: 22px 0 8px; }
-        .hello-loading-text.text-success { color: #6EE7B7; }
-        .hello-loading-text.text-error { color: #FCA5A5; }
-        .hello-loading-subtext { font-size: 13px; color: rgba(255, 255, 255, 0.7); margin: 0; }
-        body.hello-locked { overflow: hidden; }
-
-        /* ===== HIỆU ỨNG GỬI MẬT KHẨU ===== */
+        /* =====================================================
+           [MỚI] HIỆU ỨNG GỬI MẬT KHẨU
+           ===================================================== */
         .unlock-wrapper { position: relative; overflow: visible; }
+
+        /* Ripple lan tỏa từ nút */
         .unlock-ripple {
             position: absolute;
             border-radius: 50%;
@@ -89,21 +57,35 @@
             pointer-events: none;
             z-index: 1;
         }
-        @keyframes unlockRippleAnim { to { transform: scale(4); opacity: 0; } }
-        #unlockPass.sending { animation: unlockPulse 0.6s ease; border-color: #00A2FF !important; }
+        @keyframes unlockRippleAnim {
+            to { transform: scale(4); opacity: 0; }
+        }
+
+        /* Pulse viền input */
+        #unlockPass.sending {
+            animation: unlockPulse 0.6s ease;
+            border-color: #00A2FF !important;
+        }
         @keyframes unlockPulse {
             0%   { box-shadow: 0 0 0 0 rgba(0, 162, 255, 0.7); }
             70%  { box-shadow: 0 0 0 16px rgba(0, 162, 255, 0); }
             100% { box-shadow: 0 0 0 0 rgba(0, 162, 255, 0); }
         }
+
+        /* Chữ mật khẩu (dạng •) bay lên */
         .password-fly {
             position: absolute;
-            left: 50%; bottom: 100%;
+            left: 50%;
+            bottom: 100%;
             transform: translateX(-50%);
-            font-size: 20px; font-weight: bold; color: #00A2FF;
-            letter-spacing: 6px; pointer-events: none;
+            font-size: 20px;
+            font-weight: bold;
+            color: #00A2FF;
+            letter-spacing: 6px;
+            pointer-events: none;
             animation: passwordFlyUp 0.9s ease-out forwards;
-            white-space: nowrap; z-index: 10;
+            white-space: nowrap;
+            z-index: 10;
             text-shadow: 0 2px 8px rgba(0, 162, 255, 0.6);
         }
         @keyframes passwordFlyUp {
@@ -111,14 +93,33 @@
             50%  { opacity: 1; transform: translateX(-50%) translateY(-30px) scale(1.2); }
             100% { opacity: 0; transform: translateX(-50%) translateY(-80px) scale(0.6); }
         }
-        #btnUnlock.sending i { animation: unlockSpin 0.7s linear infinite; }
-        @keyframes unlockSpin { to { transform: rotate(360deg); } }
-        #unlockPass.sending-fade { opacity: 0.3; transition: opacity 0.4s ease; }
+
+        /* Nút xoay icon */
+        #btnUnlock.sending i {
+            animation: unlockSpin 0.7s linear infinite;
+        }
+        @keyframes unlockSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Input mờ dần */
+        #unlockPass.sending-fade {
+            opacity: 0.3;
+            transition: opacity 0.4s ease;
+        }
+
+        /* Dots phủ lên input */
         .password-mask-dots {
-            position: absolute; inset: 0;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 22px; color: #00A2FF; letter-spacing: 4px;
-            pointer-events: none; opacity: 0;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #00A2FF;
+            letter-spacing: 4px;
+            pointer-events: none;
+            opacity: 0;
             animation: maskDots 0.8s ease-in-out forwards;
             z-index: 5;
         }
@@ -128,14 +129,21 @@
             70%  { opacity: 1; }
             100% { opacity: 0; }
         }
+
+        /* Lắc input khi sai mật khẩu */
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             20%, 60% { transform: translateX(-8px); }
             40%, 80% { transform: translateX(8px); }
         }
-        .animate-shake { animation: shake 0.4s ease; border-color: #EF4444 !important; }
+        .animate-shake {
+            animation: shake 0.4s ease;
+            border-color: #EF4444 !important;
+        }
 
-        /* ===== [MỚI] HIỆU ỨNG MỞ KHÓA THÀNH CÔNG ===== */
+        /* =====================================================
+           [MỚI] HIỆU ỨNG MỞ KHÓA THÀNH CÔNG (giống OTP UI)
+           ===================================================== */
         #lockScreen.unlocking {
             animation: lockScreenFadeOut 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
@@ -145,27 +153,43 @@
         }
 
         .unlock-success-overlay {
-            position: fixed; inset: 0;
+            position: fixed;
+            inset: 0;
             background: rgba(255, 255, 255, 0.97);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            z-index: 999999; opacity: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+            opacity: 0;
             animation: successOverlayIn 0.5s ease forwards;
             padding: 20px;
         }
-        .dark .unlock-success-overlay { background: rgba(35, 37, 39, 0.97); }
-        @keyframes successOverlayIn { 0% { opacity: 0; } 100% { opacity: 1; } }
-        .unlock-success-overlay.fade-out { animation: successOverlayOut 0.45s ease forwards; }
+        .dark .unlock-success-overlay {
+            background: rgba(35, 37, 39, 0.97);
+        }
+        @keyframes successOverlayIn {
+            0%   { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        .unlock-success-overlay.fade-out {
+            animation: successOverlayOut 0.45s ease forwards;
+        }
         @keyframes successOverlayOut {
             0%   { opacity: 1; transform: scale(1); }
             100% { opacity: 0; transform: scale(1.05); }
         }
 
         .success-check-icon {
-            width: 120px; height: 120px; border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
             background: linear-gradient(135deg, #10B981, #059669);
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 60px;
             box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5), 0 12px 32px rgba(16, 185, 129, 0.4);
             animation: checkPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), 
                        checkPulse 1.4s ease-out 0.6s;
@@ -183,13 +207,18 @@
         }
 
         .success-title {
-            margin-top: 28px; font-size: 22px; font-weight: 700;
-            color: #10B981; opacity: 0;
+            margin-top: 28px;
+            font-size: 22px;
+            font-weight: 700;
+            color: #10B981;
+            opacity: 0;
             animation: successTextIn 0.5s ease 0.4s forwards;
         }
         .dark .success-title { color: #34D399; }
         .success-subtitle {
-            margin-top: 8px; font-size: 14px; color: #6B7280;
+            margin-top: 8px;
+            font-size: 14px;
+            color: #6B7280;
             opacity: 0;
             animation: successTextIn 0.5s ease 0.55s forwards;
         }
@@ -200,82 +229,64 @@
         }
 
         .check-burst {
-            position: absolute; inset: 0; pointer-events: none;
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
         }
         .check-burst span {
             position: absolute;
-            width: 6px; height: 6px; border-radius: 50%;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
             background: #10B981;
-            left: 50%; top: 50%;
+            left: 50%;
+            top: 50%;
             animation: burstAnim 0.8s ease-out forwards;
         }
         @keyframes burstAnim {
             0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
             100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
         }
-
-        /* Badge HĐH */
-        .os-badge {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 4px 10px; border-radius: 999px;
-            font-size: 11px; font-weight: 600;
-            background: rgba(0, 162, 255, 0.1); color: #00A2FF;
-            border: 1px solid rgba(0, 162, 255, 0.3);
-        }
-        .dark .os-badge { background: rgba(0, 162, 255, 0.15); color: #4FC3F7; }
     </style>
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300 relative">
 
     <div id="toast" class="custom-toast"></div>
 
-    <!-- OVERLAY WINDOWS HELLO -->
-    <div id="helloLoadingOverlay" class="hello-overlay hidden">
-        <div class="hello-overlay-content">
-            <div class="hello-icon-container">
-                <div id="helloSpinner" class="hello-spinner"></div>
-                <div id="helloResultIcon" class="hello-result-icon hidden"></div>
-            </div>
-            <p id="helloLoadingText" class="hello-loading-text">Đang xác thực...</p>
-            <p id="helloLoadingSubtext" class="hello-loading-subtext">Vui lòng không đóng cửa sổ này</p>
-        </div>
-    </div>
-
     <!-- MÀN HÌNH KHÓA -->
     <div id="lockScreen" class="hidden-lock">
         <div class="w-20 h-20 bg-roblox rounded-2xl flex items-center justify-center mb-6 shadow-soft"><i class="fas fa-lock text-4xl text-white"></i></div>
-        <h2 class="text-2xl font-bold mb-2 text-center">Ứng dụng đã khóa</h2>
-        <div class="mb-2"><span id="osBadgeLock" class="os-badge hidden"></span></div>
+        <h2 class="text-2xl font-bold mb-2">Ứng dụng đã khóa</h2>
 
-        <div class="unlock-wrapper w-72 max-w-full mt-2" id="unlockWrapper">
+        <!-- [SỬA] Bọc input + nút vào wrapper để chứa hiệu ứng -->
+        <div class="unlock-wrapper relative w-72 mt-4" id="unlockWrapper">
             <input type="password" id="unlockPass" placeholder="Nhập mật khẩu..." class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-xl shadow-soft focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700 transition-all">
             <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 roblox-btn text-white rounded-lg"><i class="fas fa-arrow-right"></i></button>
         </div>
 
         <button id="btnBiometricUnlock" class="hidden mt-6 flex items-center gap-2 px-6 py-3 bg-white dark:bg-darkcard border border-gray-200 dark:border-gray-700 rounded-2xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 btn-anim shadow-soft text-roblox">
-            <i class="fas fa-fingerprint text-xl" id="biometricBtnIcon"></i>
-            <span id="biometricBtnLabel">Dùng sinh trắc học</span>
+            <i class="fas fa-fingerprint text-xl"></i> Dùng Windows Hello
         </button>
     </div>
 
     <!-- THANH CÔNG CỤ -->
-    <div class="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 max-w-5xl w-full mx-auto">
-        <div class="flex items-center gap-2 md:gap-3 w-full">
-            <button id="btnAdd" class="roblox-btn flex items-center gap-2 text-white px-3 md:px-5 py-2.5 shadow-soft shrink-0"><i class="fas fa-plus"></i> <span class="hidden sm:inline">Add</span></button>
+    <div class="flex items-center justify-between px-6 md:px-8 py-5 max-w-5xl w-full mx-auto">
+        <div class="flex items-center gap-3 w-full">
+            <button id="btnAdd" class="roblox-btn flex items-center gap-2 text-white px-5 py-2.5 shadow-soft"><i class="fas fa-plus"></i> Add</button>
             <div class="relative flex-1">
                 <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
                 <input type="text" id="searchInput" placeholder="Search accounts..." class="w-full bg-robloxGray dark:bg-darkcard text-gray-800 dark:text-gray-100 pl-11 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-roblox border border-transparent dark:border-gray-700 transition-all">
             </div>
         </div>
-        <div class="flex gap-2 ml-2 md:ml-4">
-            <button id="btnUser" class="w-11 h-11 md:w-12 md:h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-user text-lg" id="iconUser"></i></button>
-            <button id="btnImport" class="w-11 h-11 md:w-12 md:h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-file-import text-lg"></i></button>
-            <button id="btnSettings" class="w-11 h-11 md:w-12 md:h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-cog text-lg"></i></button>
+        <div class="flex gap-2 ml-4">
+            <button id="btnUser" class="w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-user text-lg" id="iconUser"></i></button>
+            <button id="btnImport" class="w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-file-import text-lg"></i></button>
+            <button id="btnSettings" class="w-12 h-12 bg-white dark:bg-darkcard hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl flex items-center justify-center shadow-soft border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-roblox transition"><i class="fas fa-cog text-lg"></i></button>
         </div>
     </div>
 
     <!-- DANH SÁCH TÀI KHOẢN -->
-    <div id="accountList" class="flex-1 overflow-y-auto px-4 md:px-8 pb-10">
+    <div id="accountList" class="flex-1 overflow-y-auto px-6 md:px-8 pb-10">
         <div id="sortableGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto auto-rows-max"></div>
         <div id="emptyState" class="flex flex-col items-center justify-center h-full mt-20 hidden opacity-0 transition-opacity duration-500">
             <div class="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6 shadow-inner"><i class="fas fa-shield-alt text-4xl text-gray-400"></i></div>
@@ -284,7 +295,7 @@
     </div>
 
     <!-- MODAL THÊM TÀI KHOẢN -->
-    <div id="modalAdd" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div id="modalAdd" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalAddContent">
             <div class="flex justify-between items-center mb-5">
                 <h2 class="text-xl font-bold">Thêm Tài Khoản</h2>
@@ -302,7 +313,7 @@
     </div>
 
     <!-- MODAL XÁC NHẬN XÓA -->
-    <div id="modalDelete" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div id="modalDelete" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modalDeleteContent">
             <div class="w-14 h-14 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl"><i class="fas fa-trash-alt"></i></div>
             <h2 class="text-xl font-bold mb-2">Xóa tài khoản?</h2>
@@ -315,15 +326,11 @@
     </div>
 
     <!-- MODAL CÀI ĐẶT -->
-    <div id="modalSettings" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="modalSettingsContent">
+    <div id="modalSettings" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalSettingsContent">
             <div class="flex justify-between items-center mb-5">
                 <h2 class="text-xl font-bold">Cài đặt</h2>
                 <button id="btnCloseSettings" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-lg"></i></button>
-            </div>
-            <div class="mb-4 flex items-center gap-2">
-                <span id="osBadgeSettings" class="os-badge hidden"></span>
-                <span id="osDeviceInfo" class="text-xs text-gray-500"></span>
             </div>
             <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
                 <div><h3 class="font-bold">Giao diện</h3><p class="text-xs text-gray-500">Chọn chế độ Sáng hoặc Tối</p></div>
@@ -338,10 +345,7 @@
                 <input type="password" id="inputPassword" placeholder="Nhập mật khẩu..." class="w-full bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
             </div>
             <div class="flex items-center justify-between mb-5 pb-5 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                    <h3 class="font-bold">Mở khóa sinh trắc học</h3>
-                    <p class="text-xs text-gray-500" id="biometricSupportText">Đang kiểm tra...</p>
-                </div>
+                <div><h3 class="font-bold">Mở khóa bằng Vân tay / Khuôn mặt</h3><p class="text-xs text-gray-500">Sử dụng Windows Hello để đăng nhập</p></div>
                 <button id="btnSetupBiometric" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-xl text-sm font-semibold transition">Cài đặt</button>
             </div>
             <div class="border-t border-gray-200 dark:border-gray-700 pt-5 flex flex-col gap-3">
@@ -352,15 +356,15 @@
     </div>
 
     <!-- MODAL PROFILE -->
-    <div id="modalProfile" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="modalProfileContent">
+    <div id="modalProfile" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-md shadow-2xl transform scale-95 transition-transform duration-300" id="modalProfileContent">
             <div class="flex justify-between items-center mb-5">
                 <h2 class="text-xl font-bold">Hồ sơ cá nhân</h2>
                 <button id="btnCloseProfile" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-lg"></i></button>
             </div>
             <div class="flex items-center gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                <div class="w-14 h-14 bg-roblox text-white rounded-full flex items-center justify-center text-2xl shadow-md shrink-0"><i class="fas fa-user"></i></div>
-                <div class="min-w-0"><p class="text-xs text-gray-500 font-semibold">Đã đăng nhập</p><p class="font-bold text-lg truncate" id="profileEmail">...</p></div>
+                <div class="w-14 h-14 bg-roblox text-white rounded-full flex items-center justify-center text-2xl shadow-md"><i class="fas fa-user"></i></div>
+                <div><p class="text-xs text-gray-500 font-semibold">Đã đăng nhập</p><p class="font-bold text-lg" id="profileEmail">...</p></div>
             </div>
             <div class="mb-6">
                 <h3 class="font-bold mb-2">Đổi mật khẩu tài khoản</h3>
@@ -375,7 +379,7 @@
     </div>
 
     <!-- MODAL XÁC NHẬN ĐĂNG XUẤT -->
-    <div id="modalLogout" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div id="modalLogout" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-darkcard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 text-center" id="modalLogoutContent">
             <div class="w-14 h-14 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl"><i class="fas fa-sign-out-alt"></i></div>
             <h2 class="text-xl font-bold mb-2">Đăng xuất?</h2>
@@ -387,6 +391,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=8"></script>
+    <!-- Đã tăng version để chống lưu Cache -->
+    <script src="app.js?v=3"></script>
 </body>
 </html>
