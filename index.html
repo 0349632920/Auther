@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#00A2FF">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Authenticator - Bảo mật 2FA</title>
     
-    <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,7 +27,7 @@
         }
     </script>
     
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
     
     <style>
         #lockScreen { position: fixed; inset: 0; background: #F2F4F5; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.4s ease; padding: 20px; }
@@ -43,84 +40,133 @@
         .dark .roblox-card { background-color: #393B3D; border: 1px solid #4A4D50; }
         .roblox-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); }
 
-        /* ===== OVERLAY SINH TRẮC HỌC (đa nền tảng) ===== */
+        /* ===== WINDOWS HELLO OVERLAY ===== */
         .hello-overlay {
-            position: fixed;
-            inset: 0;
+            position: fixed; inset: 0;
             background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-            opacity: 1;
-            transition: opacity 0.3s ease;
-            padding: 20px;
+            backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 99999; opacity: 1; transition: opacity 0.3s ease; padding: 20px;
         }
-        .hello-overlay.hidden {
-            display: none;
-            opacity: 0;
-        }
+        .hello-overlay.hidden { display: none; opacity: 0; }
         .hello-overlay-content {
-            text-align: center;
-            color: #fff;
+            text-align: center; color: #fff;
             padding: 36px 52px;
             background: rgba(255, 255, 255, 0.08);
             border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            max-width: 90vw;
-            width: 100%;
+            max-width: 90vw; width: 100%;
             animation: helloFadeIn 0.3s ease;
         }
-        @keyframes helloFadeIn {
-            from { opacity: 0; transform: scale(0.92); }
-            to   { opacity: 1; transform: scale(1); }
-        }
+        @keyframes helloFadeIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         @media (max-width: 480px) {
             .hello-overlay-content { padding: 28px 24px; border-radius: 16px; max-width: 92vw; }
             .hello-loading-text { font-size: 16px; }
             .hello-loading-subtext { font-size: 12px; }
         }
-        .hello-icon-container {
-            width: 72px; height: 72px; margin: 0 auto 8px;
-            display: flex; align-items: center; justify-content: center; position: relative;
-        }
-        .hello-spinner {
-            width: 60px; height: 60px;
-            border: 4px solid rgba(255, 255, 255, 0.2);
-            border-top-color: #00A2FF; border-radius: 50%;
-            animation: helloSpin 0.9s linear infinite;
-        }
+        .hello-icon-container { width: 72px; height: 72px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; position: relative; }
+        .hello-spinner { width: 60px; height: 60px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: #00A2FF; border-radius: 50%; animation: helloSpin 0.9s linear infinite; }
         @keyframes helloSpin { to { transform: rotate(360deg); } }
-        .hello-result-icon {
-            width: 72px; height: 72px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 36px; color: #fff;
-            animation: helloPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .hello-result-icon.success {
-            background: linear-gradient(135deg, #10B981, #059669);
-            box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.2), 0 8px 24px rgba(16, 185, 129, 0.4);
-        }
-        .hello-result-icon.error {
-            background: linear-gradient(135deg, #EF4444, #DC2626);
-            box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.2), 0 8px 24px rgba(239, 68, 68, 0.4);
-        }
-        @keyframes helloPopIn {
-            0%   { transform: scale(0); opacity: 0; }
-            60%  { transform: scale(1.15); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
+        .hello-result-icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; color: #fff; animation: helloPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .hello-result-icon.success { background: linear-gradient(135deg, #10B981, #059669); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.2), 0 8px 24px rgba(16, 185, 129, 0.4); }
+        .hello-result-icon.error { background: linear-gradient(135deg, #EF4444, #DC2626); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.2), 0 8px 24px rgba(239, 68, 68, 0.4); }
+        @keyframes helloPopIn { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
         .hello-loading-text { font-size: 18px; font-weight: 700; margin: 22px 0 8px; }
         .hello-loading-text.text-success { color: #6EE7B7; }
-        .hello-loading-text.text-error   { color: #FCA5A5; }
+        .hello-loading-text.text-error { color: #FCA5A5; }
         .hello-loading-subtext { font-size: 13px; color: rgba(255, 255, 255, 0.7); margin: 0; }
         body.hello-locked { overflow: hidden; }
-        /* ===== END OVERLAY ===== */
 
-        /* Badge nhỏ hiển thị HĐH đang dùng */
+        /* ===== [MỚI] HIỆU ỨNG GỬI MẬT KHẨU ===== */
+        .unlock-wrapper { position: relative; overflow: visible; }
+
+        /* Ripple lan tỏa */
+        .unlock-ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(0, 162, 255, 0.4);
+            transform: scale(0);
+            animation: unlockRippleAnim 0.7s ease-out forwards;
+            pointer-events: none;
+            z-index: 1;
+        }
+        @keyframes unlockRippleAnim { to { transform: scale(4); opacity: 0; } }
+
+        /* Pulse viền input */
+        #unlockPass.sending {
+            animation: unlockPulse 0.6s ease;
+            border-color: #00A2FF !important;
+        }
+        @keyframes unlockPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(0, 162, 255, 0.7); }
+            70%  { box-shadow: 0 0 0 16px rgba(0, 162, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 162, 255, 0); }
+        }
+
+        /* Chữ mật khẩu bay lên */
+        .password-fly {
+            position: absolute;
+            left: 50%;
+            bottom: 100%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            font-weight: bold;
+            color: #00A2FF;
+            letter-spacing: 6px;
+            pointer-events: none;
+            animation: passwordFlyUp 0.9s ease-out forwards;
+            white-space: nowrap;
+            z-index: 10;
+            text-shadow: 0 2px 8px rgba(0, 162, 255, 0.6);
+        }
+        @keyframes passwordFlyUp {
+            0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+            50%  { opacity: 1; transform: translateX(-50%) translateY(-30px) scale(1.2); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-80px) scale(0.6); }
+        }
+
+        /* Nút xoay icon */
+        #btnUnlock.sending i { animation: unlockSpin 0.7s linear infinite; }
+        @keyframes unlockSpin { to { transform: rotate(360deg); } }
+
+        /* Input mờ dần */
+        #unlockPass.sending-fade { opacity: 0.3; transition: opacity 0.4s ease; }
+
+        /* Dots phủ lên input */
+        .password-mask-dots {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #00A2FF;
+            letter-spacing: 4px;
+            pointer-events: none;
+            opacity: 0;
+            animation: maskDots 0.8s ease-in-out forwards;
+            z-index: 5;
+        }
+        @keyframes maskDots {
+            0%   { opacity: 0; }
+            30%  { opacity: 1; }
+            70%  { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Lắc khi sai */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease;
+            border-color: #EF4444 !important;
+        }
+
+        /* Badge HĐH */
         .os-badge {
             display: inline-flex;
             align-items: center;
@@ -133,17 +179,14 @@
             color: #00A2FF;
             border: 1px solid rgba(0, 162, 255, 0.3);
         }
-        .dark .os-badge {
-            background: rgba(0, 162, 255, 0.15);
-            color: #4FC3F7;
-        }
+        .dark .os-badge { background: rgba(0, 162, 255, 0.15); color: #4FC3F7; }
     </style>
 </head>
 <body class="bg-bg dark:bg-darkbg text-gray-800 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300 relative">
 
     <div id="toast" class="custom-toast"></div>
 
-    <!-- ===== OVERLAY SINH TRẮC HỌC ===== -->
+    <!-- OVERLAY WINDOWS HELLO -->
     <div id="helloLoadingOverlay" class="hello-overlay hidden">
         <div class="hello-overlay-content">
             <div class="hello-icon-container">
@@ -154,18 +197,19 @@
             <p id="helloLoadingSubtext" class="hello-loading-subtext">Vui lòng không đóng cửa sổ này</p>
         </div>
     </div>
-    <!-- ===== END OVERLAY ===== -->
 
     <!-- MÀN HÌNH KHÓA -->
     <div id="lockScreen" class="hidden-lock">
         <div class="w-20 h-20 bg-roblox rounded-2xl flex items-center justify-center mb-6 shadow-soft"><i class="fas fa-lock text-4xl text-white"></i></div>
         <h2 class="text-2xl font-bold mb-2 text-center">Ứng dụng đã khóa</h2>
-        <!-- Badge hiển thị HĐH -->
         <div class="mb-2"><span id="osBadgeLock" class="os-badge hidden"></span></div>
-        <div class="relative w-72 max-w-full mt-2">
-            <input type="password" id="unlockPass" placeholder="Nhập mật khẩu..." class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-xl shadow-soft focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700">
+
+        <!-- [MỚI] Wrapper chứa hiệu ứng gửi mật khẩu -->
+        <div class="unlock-wrapper w-72 max-w-full mt-2" id="unlockWrapper">
+            <input type="password" id="unlockPass" placeholder="Nhập mật khẩu..." class="w-full bg-white dark:bg-darkcard text-center text-lg px-4 py-3 rounded-xl shadow-soft focus:outline-none focus:ring-2 focus:ring-roblox border border-gray-200 dark:border-gray-700 transition-all">
             <button id="btnUnlock" class="absolute right-2 top-2 w-10 h-10 roblox-btn text-white rounded-lg"><i class="fas fa-arrow-right"></i></button>
         </div>
+
         <button id="btnBiometricUnlock" class="hidden mt-6 flex items-center gap-2 px-6 py-3 bg-white dark:bg-darkcard border border-gray-200 dark:border-gray-700 rounded-2xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 btn-anim shadow-soft text-roblox">
             <i class="fas fa-fingerprint text-xl" id="biometricBtnIcon"></i>
             <span id="biometricBtnLabel">Dùng sinh trắc học</span>
@@ -235,7 +279,6 @@
                 <h2 class="text-xl font-bold">Cài đặt</h2>
                 <button id="btnCloseSettings" class="text-gray-400 hover:text-gray-700 transition"><i class="fas fa-times text-lg"></i></button>
             </div>
-            <!-- Badge thông tin HĐH -->
             <div class="mb-4 flex items-center gap-2">
                 <span id="osBadgeSettings" class="os-badge hidden"></span>
                 <span id="osDeviceInfo" class="text-xs text-gray-500"></span>
@@ -302,6 +345,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>
