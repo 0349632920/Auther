@@ -13,18 +13,82 @@ let html5QrCode = null;
 
 // ==========================================
 // [MỚI] WINDOWS HELLO LOADING OVERLAY
+// Hỗ trợ 3 trạng thái: loading / success / error
 // ==========================================
 function showHelloLoading(text, subtext) {
     const overlay = document.getElementById('helloLoadingOverlay');
     if (!overlay) return;
-    if (text) {
-        const t = overlay.querySelector('.hello-loading-text');
-        if (t) t.textContent = text;
+
+    const spinner = document.getElementById('helloSpinner');
+    const resultIcon = document.getElementById('helloResultIcon');
+    const textEl = document.getElementById('helloLoadingText');
+    const subtextEl = document.getElementById('helloLoadingSubtext');
+
+    // Reset về trạng thái loading
+    if (spinner) spinner.classList.remove('hidden');
+    if (resultIcon) {
+        resultIcon.classList.add('hidden');
+        resultIcon.className = 'hello-result-icon hidden';
+        resultIcon.innerHTML = '';
     }
-    if (subtext !== undefined) {
-        const s = overlay.querySelector('.hello-loading-subtext');
-        if (s) s.textContent = subtext;
+    if (textEl) {
+        textEl.textContent = text || 'Đang xác thực Windows Hello...';
+        textEl.className = 'hello-loading-text';
     }
+    if (subtextEl && subtext !== undefined) subtextEl.textContent = subtext;
+
+    overlay.classList.remove('hidden');
+    document.body.classList.add('hello-locked');
+}
+
+// [MỚI] Hiển thị trạng thái THÀNH CÔNG (tích xanh lá)
+function showHelloSuccess(text = 'Xác thực thành công!', subtext = 'Đang mở khóa ứng dụng...') {
+    const overlay = document.getElementById('helloLoadingOverlay');
+    if (!overlay) return;
+
+    const spinner = document.getElementById('helloSpinner');
+    const resultIcon = document.getElementById('helloResultIcon');
+    const textEl = document.getElementById('helloLoadingText');
+    const subtextEl = document.getElementById('helloLoadingSubtext');
+
+    if (spinner) spinner.classList.add('hidden');
+    if (resultIcon) {
+        resultIcon.classList.remove('hidden');
+        resultIcon.className = 'hello-result-icon success';
+        resultIcon.innerHTML = '<i class="fas fa-check"></i>';
+    }
+    if (textEl) {
+        textEl.textContent = text;
+        textEl.className = 'hello-loading-text text-success';
+    }
+    if (subtextEl) subtextEl.textContent = subtext;
+
+    overlay.classList.remove('hidden');
+    document.body.classList.add('hello-locked');
+}
+
+// [MỚI] Hiển thị trạng thái THẤT BẠI (X đỏ)
+function showHelloError(text = 'Xác thực thất bại!', subtext = 'Vui lòng thử lại') {
+    const overlay = document.getElementById('helloLoadingOverlay');
+    if (!overlay) return;
+
+    const spinner = document.getElementById('helloSpinner');
+    const resultIcon = document.getElementById('helloResultIcon');
+    const textEl = document.getElementById('helloLoadingText');
+    const subtextEl = document.getElementById('helloLoadingSubtext');
+
+    if (spinner) spinner.classList.add('hidden');
+    if (resultIcon) {
+        resultIcon.classList.remove('hidden');
+        resultIcon.className = 'hello-result-icon error';
+        resultIcon.innerHTML = '<i class="fas fa-times"></i>';
+    }
+    if (textEl) {
+        textEl.textContent = text;
+        textEl.className = 'hello-loading-text text-error';
+    }
+    if (subtextEl) subtextEl.textContent = subtext;
+
     overlay.classList.remove('hidden');
     document.body.classList.add('hello-locked');
 }
@@ -36,8 +100,9 @@ function hideHelloLoading() {
     document.body.classList.remove('hello-locked');
 }
 
-// Expose global để debug
 window.showHelloLoading = showHelloLoading;
+window.showHelloSuccess = showHelloSuccess;
+window.showHelloError = showHelloError;
 window.hideHelloLoading = hideHelloLoading;
 
 // ==========================================
@@ -199,20 +264,18 @@ async function generateOTP(secret, offset = 0) {
 }
 
 // ==========================================
-// [MỚI] REGISTER BIOMETRIC (Windows Hello)
+// [MỚI] REGISTER BIOMETRIC — có overlay + tích xanh/X đỏ
 // ==========================================
 async function registerBiometric() {
-    // [MỚI] Kiểm tra hỗ trợ
     if (!window.PublicKeyCredential) {
-        return showNotification("Trình duyệt không hỗ trợ Windows Hello.", "error");
+        showNotification("Trình duyệt không hỗ trợ Windows Hello.", "error");
+        return;
     }
 
-    // [MỚI] Hiện overlay ngay
+    // Bước 1: hiện overlay loading
     showHelloLoading('Đang kết nối Windows Hello...', 'Vui lòng không đóng cửa sổ này');
 
     try {
-        // [MỚI] Bước 1: Chuẩn bị challenge
-        showHelloLoading('Đang chuẩn bị đăng ký...', 'Vui lòng đợi');
         const challenge = new Uint8Array(32);
         window.crypto.getRandomValues(challenge);
 
@@ -226,43 +289,49 @@ async function registerBiometric() {
             attestation: "direct"
         };
 
-        // [MỚI] Bước 2: Chờ Windows Hello dialog
+        // Bước 2: chờ Windows Hello
         showHelloLoading('Đang chờ quét vân tay / khuôn mặt...', 'Hãy làm theo hướng dẫn trên màn hình');
         const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
 
-        // [MỚI] Bước 3: Lưu
-        showHelloLoading('Đang lưu thông tin...', 'Vui lòng đợi');
+        // Bước 3: lưu
         settings.biometricId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
         saveSettings();
 
-        // [MỚI] Thành công
-        showHelloLoading('Cài đặt thành công!', 'Bạn có thể dùng Windows Hello để mở khóa');
+        // Bước 4: THÀNH CÔNG → hiện tích xanh
+        showHelloSuccess('Cài đặt thành công!', 'Bạn có thể dùng Windows Hello để mở khóa');
         showNotification("Cài đặt Windows Hello thành công!", "success");
-        setTimeout(hideHelloLoading, 1000);
+        setTimeout(hideHelloLoading, 1200);
 
     } catch (err) {
-        // [MỚI] Ẩn overlay + xử lý lỗi chi tiết
-        hideHelloLoading();
+        // THẤT BẠI → hiện X đỏ
         console.error('[Windows Hello Register]', err);
+        let msg = 'Lỗi cài đặt Vân tay.';
+        let sub = 'Vui lòng thử lại';
+
         if (err.name === 'NotAllowedError') {
-            showNotification("Bạn đã hủy hoặc từ chối đăng ký Windows Hello.", "error");
+            msg = 'Bạn đã hủy đăng ký!';
+            sub = 'Thao tác đã bị hủy bỏ';
         } else if (err.name === 'SecurityError') {
-            showNotification("Windows Hello yêu cầu HTTPS hoặc localhost.", "error");
+            msg = 'Yêu cầu HTTPS!';
+            sub = 'Windows Hello cần HTTPS hoặc localhost';
         } else if (err.name === 'AbortError') {
-            showNotification("Quá thời gian chờ đăng ký (60s).", "error");
-        } else {
-            showNotification("Lỗi cài đặt Vân tay. Hãy chắc chắn bạn đang dùng HTTPS.", "error");
+            msg = 'Quá thời gian chờ!';
+            sub = 'Vui lòng thử lại (60s)';
         }
+
+        showHelloError(msg, sub);
+        showNotification(msg, "error");
+        setTimeout(hideHelloLoading, 1500);
     }
 }
 
 // ==========================================
-// [MỚI] AUTHENTICATE BIOMETRIC (Windows Hello)
+// [MỚI] AUTHENTICATE BIOMETRIC — có overlay + tích xanh/X đỏ
 // ==========================================
 async function authenticateBiometric() {
     if (!settings.biometricId) return false;
 
-    // [MỚI] Hiện overlay ngay khi bắt đầu
+    // Bước 1: hiện overlay loading
     showHelloLoading('Đang kết nối Windows Hello...', 'Vui lòng không đóng cửa sổ này');
 
     try {
@@ -270,7 +339,7 @@ async function authenticateBiometric() {
         window.crypto.getRandomValues(challenge);
         const rawId = new Uint8Array(atob(settings.biometricId).split("").map(c => c.charCodeAt(0)));
 
-        // [MỚI] Bước chờ quét
+        // Bước 2: chờ Windows Hello
         showHelloLoading('Đang chờ xác thực Windows Hello...', 'Hãy quét vân tay hoặc khuôn mặt');
 
         await navigator.credentials.get({
@@ -282,24 +351,33 @@ async function authenticateBiometric() {
             }
         });
 
-        // [MỚI] Thành công
-        showHelloLoading('Xác thực thành công!', 'Đang mở khóa ứng dụng...');
-        setTimeout(hideHelloLoading, 500);
+        // Bước 3: THÀNH CÔNG → hiện tích xanh, đợi 800ms rồi ẩn
+        showHelloSuccess('Xác thực thành công!', 'Đang mở khóa ứng dụng...');
+        await new Promise(r => setTimeout(r, 800));
+        hideHelloLoading();
         return true;
 
     } catch (err) {
-        // [MỚI] Ẩn overlay + trả về false
-        hideHelloLoading();
+        // THẤT BẠI → hiện X đỏ, đợi 1200ms rồi ẩn
         console.error('[Windows Hello Auth]', err);
+        let msg = 'Xác thực thất bại!';
+        let sub = 'Vui lòng thử lại';
 
         if (err.name === 'NotAllowedError') {
-            showNotification("Bạn đã hủy xác thực Windows Hello.", "error");
+            msg = 'Bạn đã hủy xác thực!';
+            sub = 'Thao tác đã bị hủy bỏ';
         } else if (err.name === 'SecurityError') {
-            showNotification("Windows Hello yêu cầu HTTPS hoặc localhost.", "error");
+            msg = 'Yêu cầu HTTPS!';
+            sub = 'Windows Hello cần HTTPS hoặc localhost';
         } else if (err.name === 'AbortError') {
-            showNotification("Quá thời gian chờ xác thực (60s).", "error");
+            msg = 'Quá thời gian chờ!';
+            sub = 'Vui lòng thử lại (60s)';
         }
-        // Lỗi khác: im lặng, hàm gọi sẽ tự báo "Xác thực Vân tay thất bại!"
+
+        showHelloError(msg, sub);
+        showNotification(msg, "error");
+        await new Promise(r => setTimeout(r, 1200));
+        hideHelloLoading();
         return false;
     }
 }
@@ -532,7 +610,6 @@ function bindAllEvents() {
         saveSettings(); autoSync(); closeModal('modalSettings'); showNotification("Đã lưu cài đặt!", "success");
     });
 
-    // [SỬA] Nút cài đặt Windows Hello — dùng registerBiometric (đã có overlay)
     bindClick('btnSetupBiometric', registerBiometric);
 
     bindClick('btnExport', () => {
@@ -608,17 +685,14 @@ function bindAllEvents() {
         document.getElementById('unlockPass').addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('btnUnlock').click(); });
     }
 
-    // [SỬA] Nút mở khóa Windows Hello — dùng authenticateBiometric (đã có overlay)
     bindClick('btnBiometricUnlock', async () => {
         const success = await authenticateBiometric();
         if (success) {
             isAppLocked = false; document.getElementById('lockScreen').classList.add('hidden-lock');
             document.getElementById('unlockPass').value = ''; document.getElementById('btnBiometricUnlock')?.classList.add('hidden');
             updateCodes(); resetAutoLock(); showNotification("Mở khóa bằng Vân tay thành công!", "success");
-        } else {
-            // Lỗi cụ thể đã được authenticateBiometric() báo, chỉ cần fallback
-            showNotification("Xác thực Vân tay thất bại!", "error");
         }
+        // Nếu thất bại, authenticateBiometric() đã hiện X đỏ + toast, không cần báo thêm
     });
 
     bindClick('btnChangePassword', async () => {
