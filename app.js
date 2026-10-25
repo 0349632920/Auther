@@ -11,6 +11,9 @@ let isAppLocked = false;
 let autoLockTimer;
 let html5QrCode = null;
 
+// ==========================================
+// CÁC HÀM TIỆN ÍCH
+// ==========================================
 function showNotification(message, type = 'error') {
     const toast = document.getElementById('toast');
     if (!toast) return;
@@ -28,14 +31,16 @@ function showNotification(message, type = 'error') {
 
 function checkLogin() {
     if (!currentUser) {
-        showNotification("Vui lòng đăng nhập!", "error");
+        showNotification("Vui lòng đăng nhập để sử dụng tính năng này!", "error");
         setTimeout(() => { window.location.href = "/login"; }, 1000);
         return false;
     }
     return true;
 }
 
-// TÍNH NĂNG: TỰ ĐỘNG KHÓA
+// ==========================================
+// TỰ ĐỘNG KHÓA
+// ==========================================
 function resetAutoLock() {
     if (!settings.password || isAppLocked) return;
     clearTimeout(autoLockTimer);
@@ -48,7 +53,9 @@ function resetAutoLock() {
 document.addEventListener('mousemove', resetAutoLock);
 document.addEventListener('keydown', resetAutoLock);
 
-// TÍNH NĂNG: MÃ HÓA DỮ LIỆU LOCAL
+// ==========================================
+// MÃ HÓA LOCAL
+// ==========================================
 function encryptData(text, password) {
     if (!password) return text; 
     return CryptoJS.AES.encrypt(text, password).toString();
@@ -113,7 +120,9 @@ function saveData() {
     localStorage.setItem('proton_accounts', encrypted);
 }
 
-// THUẬT TOÁN OTP
+// ==========================================
+// OTP
+// ==========================================
 const OTP_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32Decode(base32) {
     let bits = 0, value = 0, index = 0;
@@ -149,6 +158,9 @@ async function generateOTP(secret, offset = 0) {
     } catch (e) { return "Error"; }
 }
 
+// ==========================================
+// KHỞI TẠO
+// ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
     loadSettings();
     loadData();
@@ -156,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkUserSession();
     setupEventListeners();
     
-    // NHẬN LINK CHIA SẺ
+    // Nhận link chia sẻ
     const urlParams = new URLSearchParams(window.location.search);
     const shareSecret = urlParams.get('share_secret');
     const shareName = urlParams.get('share_name');
@@ -169,7 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // KÉO THẢ
+    // Kéo thả
     new Sortable(document.getElementById('sortableGrid'), {
         animation: 150,
         ghostClass: 'opacity-50',
@@ -226,7 +238,6 @@ function renderAccounts() {
             copyCode(account.secret);
         };
         
-        // TẠO THẺ VỚI ĐẦY ĐỦ VÒNG TRÒN VÀ NÚT
         card.innerHTML = `
             <div class="absolute top-4 right-4 flex gap-1 z-10">
                 <button class="btn-share w-8 h-8 flex items-center justify-center text-gray-300 hover:text-roblox rounded-full" onclick="openShareModal('${account.secret}', '${account.name}')" title="Chia sẻ">
@@ -263,7 +274,6 @@ async function updateCodes() {
     const remaining = 30 - (now % 30);
     const fraction = remaining / 30;
     
-    // VÒNG TRÒN ĐẾM GIÂY
     document.querySelectorAll('.arc').forEach(arc => {
         arc.style.strokeDasharray = `${fraction * 100}, 100`;
         if (remaining <= 5) { arc.classList.remove('text-roblox'); arc.classList.add('text-red-500'); }
@@ -313,7 +323,11 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// ==========================================
+// GẮN SỰ KIỆN CHO TẤT CẢ CÁC NÚT
+// ==========================================
 function setupEventListeners() {
+    // 1. Nút Thêm (Add)
     document.getElementById('btnAdd')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         if (isAppLocked) return showNotification("Vui lòng mở khóa ứng dụng để thêm mã!", "error");
@@ -351,7 +365,7 @@ function setupEventListeners() {
         document.getElementById('btnCancelAdd')?.click();
     });
 
-    // NÚT QUÉT QR
+    // 2. Nút Quét QR
     document.getElementById('btnScanQR')?.addEventListener('click', () => {
         document.getElementById('modalQR').classList.remove('hidden');
         document.getElementById('modalQR').classList.add('flex');
@@ -393,6 +407,7 @@ function setupEventListeners() {
         }
     });
 
+    // 3. Nút Profile
     document.getElementById('btnUser')?.addEventListener('click', () => {
         if (currentUser) {
             document.getElementById('modalProfile').classList.remove('hidden');
@@ -409,6 +424,7 @@ function setupEventListeners() {
         }, 200);
     });
 
+    // 4. Nút Import
     document.getElementById('btnImport')?.addEventListener('click', () => {
         if (!checkLogin() || isAppLocked) return;
         const input = document.createElement('input');
@@ -456,6 +472,7 @@ function setupEventListeners() {
         input.click();
     });
 
+    // 5. Nút Cài đặt (Settings)
     document.getElementById('btnSettings')?.addEventListener('click', () => {
         if (!checkLogin() || isAppLocked) return;
         document.getElementById('inputPassword').value = settings.password;
@@ -479,18 +496,29 @@ function setupEventListeners() {
     });
 
     document.getElementById('btnToggleAutoLock')?.addEventListener('click', () => {
+        // SỬA LỖI: Nếu chưa có mật khẩu thì không cho bật AutoLock
+        if (!settings.password) {
+            showNotification("Vui lòng nhập mật khẩu bên dưới trước khi bật tính năng này!", "error");
+            document.getElementById('inputPassword').focus();
+            return;
+        }
         settings.autoLock = !settings.autoLock;
         updateAutoLockUI();
     });
 
     document.getElementById('btnSaveSettings')?.addEventListener('click', () => {
         settings.password = document.getElementById('inputPassword').value.trim();
+        // Nếu người dùng xóa pass, tự động tắt autoLock
+        if (!settings.password) {
+            settings.autoLock = false;
+            updateAutoLockUI();
+        }
         saveSettings(); autoSync();
         document.getElementById('btnCloseSettings')?.click();
         showNotification("Đã lưu cài đặt!", "success");
     });
 
-    // NÚT XUẤT FILE (EXPORT)
+    // 6. Nút Xuất File (Export)
     document.getElementById('btnExport')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         if (accounts.length === 0) return showNotification("Không có dữ liệu để xuất!", "error");
@@ -507,7 +535,7 @@ function setupEventListeners() {
         showNotification("Đã xuất file JSON thành công!", "success");
     });
 
-    // NÚT CHIA SẺ
+    // 7. Nút Chia sẻ
     window.openShareModal = function(secret, name) {
         if (!checkLogin()) return;
         const encodedSecret = btoa(secret);
@@ -532,6 +560,7 @@ function setupEventListeners() {
         });
     });
 
+    // 8. Nút Đăng xuất
     document.getElementById('btnLogout')?.addEventListener('click', () => {
         if (!checkLogin()) return;
         document.getElementById('modalLogout').classList.remove('hidden');
@@ -556,6 +585,7 @@ function setupEventListeners() {
         window.location.href = "/login";
     });
 
+    // 9. Nút Xóa (Delete) - SỬA LỖI KHÔNG HOẠT ĐỘNG
     window.openDeleteModal = function(index) {
         if (!checkLogin() || isAppLocked) return;
         deleteIndex = index;
@@ -587,6 +617,7 @@ function setupEventListeners() {
         }
     });
 
+    // 10. Màn hình khóa
     document.getElementById('btnUnlock')?.addEventListener('click', () => {
         const pass = document.getElementById('unlockPass').value.trim();
         if (pass === settings.password) {
@@ -604,6 +635,7 @@ function setupEventListeners() {
         if (e.key === 'Enter') document.getElementById('btnUnlock').click();
     });
 
+    // 11. Đổi mật khẩu
     document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
         if (!checkLogin()) return;
         const oldPass = document.getElementById('oldPassword').value.trim();
