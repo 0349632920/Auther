@@ -1,5 +1,6 @@
 import os
-from flask import Flask, send_from_directory, make_response
+from datetime import datetime
+from flask import Flask, jsonify, send_from_directory, make_response
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
@@ -11,6 +12,20 @@ def no_cache_response(filepath, filename):
     response.headers['Expires'] = '-1'
     return response
 
+# ==========================================
+# ⚠️ HEALTH CHECK — PHẢI ĐẶT TRƯỚC CATCH-ALL
+# ==========================================
+@app.route('/health', methods=['GET', 'HEAD'])
+def health():
+    return jsonify({
+        "status": "ok",
+        "service": "h-secure",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }), 200
+
+# ==========================================
+# CÁC ROUTE CỤ THỂ
+# ==========================================
 @app.route('/')
 def index():
     return no_cache_response('.', 'index.html')
@@ -23,22 +38,14 @@ def login_page():
 def register_page():
     return no_cache_response('.', 'register.html')
 
+# ==========================================
+# CATCH-ALL — ĐẶT CUỐI CÙNG
+# ==========================================
 @app.route('/<path:path>')
 def serve_static(path):
     if os.path.exists(path):
         return no_cache_response('.', path)
     return no_cache_response('.', 'index.html')
-
-# ==========================================
-# HEALTH CHECK — dùng cho UptimeRobot
-# ==========================================
-@app.route('/health', methods=['GET', 'HEAD'])
-def health():
-    return jsonify({
-        "status": "ok",
-        "service": "h-secure",
-        "timestamp": datetime.utcnow().isoformat() + "Z"
-    }), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
