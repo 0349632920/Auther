@@ -29,6 +29,17 @@ def serve_static(path):
         return no_cache_response('.', path)
     return no_cache_response('.', 'index.html')
 
+# ==========================================
+# HEALTH CHECK — dùng cho UptimeRobot
+# ==========================================
+@app.route('/health', methods=['GET', 'HEAD'])
+def health():
+    return jsonify({
+        "status": "ok",
+        "service": "h-secure",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }), 200
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
