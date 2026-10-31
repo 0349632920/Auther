@@ -13,7 +13,7 @@ def no_cache_response(filepath, filename):
     return response
 
 # ==========================================
-# ⚠️ HEALTH CHECK — PHẢI ĐẶT TRƯỚC CATCH-ALL
+# HEALTH CHECK — Đặt trước catch-all để không bị nuốt
 # ==========================================
 @app.route('/health', methods=['GET', 'HEAD'])
 def health():
@@ -24,7 +24,7 @@ def health():
     }), 200
 
 # ==========================================
-# CÁC ROUTE CỤ THỂ
+# CÁC ROUTE CỦA BẠN (GIỮ NGUYÊN)
 # ==========================================
 @app.route('/')
 def index():
@@ -39,7 +39,7 @@ def register_page():
     return no_cache_response('.', 'register.html')
 
 # ==========================================
-# CATCH-ALL — ĐẶT CUỐI CÙNG
+# CATCH-ALL — Đặt cuối cùng
 # ==========================================
 @app.route('/<path:path>')
 def serve_static(path):
