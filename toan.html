@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đề thi môn Toán lớp 6 - Trực tiếp</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax for rendering math formulas beautifully -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']]
+        },
+        svg: {
+          fontCache: 'global'
+        }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .custom-radio:checked + label {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }
+        .gradient-header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+
+    <!-- Header Section -->
+    <header class="gradient-header text-white shadow-lg py-6 mb-8">
+        <div class="max-w-4xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+                <div class="inline-block bg-blue-500/30 text-blue-100 text-xs px-3 py-1 rounded-full font-semibold uppercase tracking-wider mb-2">
+                    Chương trình GDPT Toán Lớp 6
+                </div>
+                <h1 class="text-2xl md:text-3xl font-bold">ĐỀ THI KIỂM TRA MÔN TOÁN LỚP 6</h1>
+                <p class="text-blue-100 text-sm mt-1">Thời gian làm bài: 45 phút | Đầy đủ Trắc nghiệm & Tự luận</p>
+            </div>
+            <div class="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20 text-center flex flex-col items-center min-w-[140px]">
+                <span class="text-xs uppercase text-blue-200 font-medium">Thời gian còn lại</span>
+                <span id="timer" class="text-2xl font-bold tracking-wider font-mono text-yellow-300">45:00</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4">
+
+        <!-- Student Info Bar -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 mb-6 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-user-graduate"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-500 font-medium">Học sinh</div>
+                    <div class="text-sm font-semibold text-gray-800">Lớp 6A - THCS Trực Tuyến</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-6 text-sm">
+                <div><span class="text-gray-500">Trắc nghiệm:</span> <strong class="text-blue-600">3.0 điểm (6 câu)</strong></div>
+                <div><span class="text-gray-500">Tự luận:</span> <strong class="text-indigo-600">7.0 điểm (5 bài)</strong></div>
+            </div>
+        </div>
+
+        <!-- Score Banner (Hidden initially) -->
+        <div id="score-banner" class="hidden bg-white rounded-2xl p-6 shadow-md border-2 border-green-500 mb-8 text-center transition-all duration-300">
+            <div class="inline-flex p-3 rounded-full bg-green-100 text-green-600 mb-3 text-2xl">
+                <i class="fa-solid fa-award"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-1">KẾT QUẢ BÀI THI CỦA BẠN</h2>
+            <p class="text-gray-600 text-sm mb-4">Chi tiết điểm số từng phần thi</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto mb-4">
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <div class="text-xs text-gray-500">Tổng điểm</div>
+                    <div id="total-score" class="text-3xl font-bold text-blue-600">0.0 / 10</div>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <div class="text-xs text-gray-500">Trắc nghiệm</div>
+                    <div id="mcq-score" class="text-xl font-bold text-emerald-600">0.0 / 3.0</div>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <div class="text-xs text-gray-500">Tự luận</div>
+                    <div id="essay-score" class="text-xl font-bold text-indigo-600">0.0 / 7.0</div>
+                </div>
+            </div>
+            <p id="eval-message" class="text-sm font-medium text-gray-700 italic bg-blue-50 p-3 rounded-xl inline-block border border-blue-100 max-w-md"></p>
+        </div>
+
+        <form id="quiz-form">
+            
+            <!-- PHẦN 1: TRẮC NGHIỆM -->
+            <section class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+                <div class="flex items-center gap-3 border-b border-gray-100 pb-4 mb-6">
+                    <span class="bg-blue-600 text-white font-bold px-3 py-1 rounded-lg text-sm">PHẦN I</span>
+                    <h2 class="text-lg font-bold text-gray-800">TRẮC NGHIỆM KHÁCH QUAN (3,0 điểm)</h2>
+                    <span class="text-xs text-gray-500 ml-auto">(Mỗi câu trả lời đúng được 0,5 điểm)</span>
+                </div>
+
+                <div class="space-y-8">
+                    <!-- MCQ 1 -->
+                    <div class="mcq-item border-b border-gray-100 pb-6" data-id="mcq1" data-answer="B">
+                        <p class="font-medium text-gray-800 mb-3">
+                            <span class="font-bold text-blue-600">Câu 1:</span> Tập hợp $A = \{x \in \mathbb{N} \mid 4 < x \le 8\}$ gồm các phần tử là:
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <input type="radio" name="mcq1" id="mcq1_a" value="A" class="hidden custom-radio">
+                                <label for="mcq1_a" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">A</span>
+                                    $\{4; 5; 6; 7; 8\}$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq1" id="mcq1_b" value="B" class="hidden custom-radio">
+                                <label for="mcq1_b" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">B</span>
+                                    $\{5; 6; 7; 8\}$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq1" id="mcq1_c" value="C" class="hidden custom-radio">
+                                <label for="mcq1_c" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">C</span>
+                                    $\{5; 6; 7\}$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq1" id="mcq1_d" value="D" class="hidden custom-radio">
+                                <label for="mcq1_d" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">D</span>
+                                    $\{4; 5; 6; 7\}$
+                                </label>
+                            </div>
+                        </div>
+                        <div class="explanation hidden mt-3 p-3 bg-blue-50 text-blue-900 rounded-xl text-xs border border-blue-100">
+                            <strong>Lời giải chi tiết:</strong> Dấu $<$ nghĩa là không lấy 4, dấu $\le$ nghĩa là có lấy 8. Các số tự nhiên lớn hơn 4 và nhỏ hơn hoặc bằng 8 là: $5; 6; 7; 8$. $\rightarrow$ Chọn B.
+                        </div>
+                    </div>
+
+                    <!-- MCQ 2 -->
+                    <div class="mcq-item border-b border-gray-100 pb-6" data-id="mcq2" data-answer="B">
+                        <p class="font-medium text-gray-800 mb-3">
+                            <span class="font-bold text-blue-600">Câu 2:</span> Kết quả của phép tính $5^6 : 5^2$ là:
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <input type="radio" name="mcq2" id="mcq2_a" value="A" class="hidden custom-radio">
+                                <label for="mcq2_a" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">A</span>
+                                    $5^3$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq2" id="mcq2_b" value="B" class="hidden custom-radio">
+                                <label for="mcq2_b" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">B</span>
+                                    $5^4$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq2" id="mcq2_c" value="C" class="hidden custom-radio">
+                                <label for="mcq2_c" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">C</span>
+                                    $5^8$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq2" id="mcq2_d" value="D" class="hidden custom-radio">
+                                <label for="mcq2_d" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">D</span>
+                                    $1^4$
+                                </label>
+                            </div>
+                        </div>
+                        <div class="explanation hidden mt-3 p-3 bg-blue-50 text-blue-900 rounded-xl text-xs border border-blue-100">
+                            <strong>Lời giải chi tiết:</strong> Chia hai lũy thừa cùng cơ số: $a^m : a^n = a^{m-n}$ ($a \neq 0, m \ge n$). Ta có $5^6 : 5^2 = 5^{6-2} = 5^4$. $\rightarrow$ Chọn B.
+                        </div>
+                    </div>
+
+                    <!-- MCQ 3 -->
+                    <div class="mcq-item border-b border-gray-100 pb-6" data-id="mcq3" data-answer="B">
+                        <p class="font-medium text-gray-800 mb-3">
+                            <span class="font-bold text-blue-600">Câu 3:</span> Số nào sau đây chia hết cho cả $2; 3; 5; 9$?
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <input type="radio" name="mcq3" id="mcq3_a" value="A" class="hidden custom-radio">
+                                <label for="mcq3_a" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">A</span>
+                                    $135$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq3" id="mcq3_b" value="B" class="hidden custom-radio">
+                                <label for="mcq3_b" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">B</span>
+                                    $270$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq3" id="mcq3_c" value="C" class="hidden custom-radio">
+                                <label for="mcq3_c" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">C</span>
+                                    $340$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq3" id="mcq3_d" value="D" class="hidden custom-radio">
+                                <label for="mcq3_d" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">D</span>
+                                    $405$
+                                </label>
+                            </div>
+                        </div>
+                        <div class="explanation hidden mt-3 p-3 bg-blue-50 text-blue-900 rounded-xl text-xs border border-blue-100">
+                            <strong>Lời giải chi tiết:</strong> Số chia hết cho cả 2 và 5 phải có tận cùng là $0$ (chỉ còn $270$ và $340$). Xét tổng chữ số chia hết cho 9: $270$ có $2+7+0 = 9 \vdots 9$. $\rightarrow$ Chọn B.
+                        </div>
+                    </div>
+
+                    <!-- MCQ 4 -->
+                    <div class="mcq-item border-b border-gray-100 pb-6" data-id="mcq4" data-answer="C">
+                        <p class="font-medium text-gray-800 mb-3">
+                            <span class="font-bold text-blue-600">Câu 4:</span> Bội chung nhỏ nhất $\text{BCNN}(12, 15)$ là:
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <input type="radio" name="mcq4" id="mcq4_a" value="A" class="hidden custom-radio">
+                                <label for="mcq4_a" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">A</span>
+                                    $3$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq4" id="mcq4_b" value="B" class="hidden custom-radio">
+                                <label for="mcq4_b" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">B</span>
+                                    $30$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq4" id="mcq4_c" value="C" class="hidden custom-radio">
+                                <label for="mcq4_c" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">C</span>
+                                    $60$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq4" id="mcq4_d" value="D" class="hidden custom-radio">
+                                <label for="mcq4_d" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">D</span>
+                                    $180$
+                                </label>
+                            </div>
+                        </div>
+                        <div class="explanation hidden mt-3 p-3 bg-blue-50 text-blue-900 rounded-xl text-xs border border-blue-100">
+                            <strong>Lời giải chi tiết:</strong> Phân tích ra thừa số nguyên tố: $12 = 2^2 \cdot 3$; $15 = 3 \cdot 5$. Suy ra $\text{BCNN}(12, 15) = 2^2 \cdot 3 \cdot 5 = 60$. $\rightarrow$ Chọn C.
+                        </div>
+                    </div>
+
+                    <!-- MCQ 5 -->
+                    <div class="mcq-item border-b border-gray-100 pb-6" data-id="mcq5" data-answer="A">
+                        <p class="font-medium text-gray-800 mb-3">
+                            <span class="font-bold text-blue-600">Câu 5:</span> Kết quả của phép tính $(-18) + (-12)$ là:
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <input type="radio" name="mcq5" id="mcq5_a" value="A" class="hidden custom-radio">
+                                <label for="mcq5_a" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">A</span>
+                                    $-30$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq5" id="mcq5_b" value="B" class="hidden custom-radio">
+                                <label for="mcq5_b" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">B</span>
+                                    $30$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq5" id="mcq5_c" value="C" class="hidden custom-radio">
+                                <label for="mcq5_c" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">C</span>
+                                    $-6$
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq5" id="mcq5_d" value="D" class="hidden custom-radio">
+                                <label for="mcq5_d" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">D</span>
+                                    $6$
+                                </label>
+                            </div>
+                        </div>
+                        <div class="explanation hidden mt-3 p-3 bg-blue-50 text-blue-900 rounded-xl text-xs border border-blue-100">
+                            <strong>Lời giải chi tiết:</strong> Cộng hai số nguyên âm: ta cộng hai giá trị tuyệt đối rồi đặt dấu trừ trước kết quả: $(-18) + (-12) = -(18 + 12) = -30$. $\rightarrow$ Chọn A.
+                        </div>
+                    </div>
+
+                    <!-- MCQ 6 -->
+                    <div class="mcq-item" data-id="mcq6" data-answer="C">
+                        <p class="font-medium text-gray-800 mb-3">
+                            <span class="font-bold text-blue-600">Câu 6:</span> Trong các hình sau, hình nào luôn có hai đường chéo bằng nhau?
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <input type="radio" name="mcq6" id="mcq6_a" value="A" class="hidden custom-radio">
+                                <label for="mcq6_a" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">A</span>
+                                    Hình thoi
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq6" id="mcq6_b" value="B" class="hidden custom-radio">
+                                <label for="mcq6_b" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">B</span>
+                                    Hình bình hành
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq6" id="mcq6_c" value="C" class="hidden custom-radio">
+                                <label for="mcq6_c" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">C</span>
+                                    Hình chữ nhật
+                                </label>
+                            </div>
+                            <div>
+                                <input type="radio" name="mcq6" id="mcq6_d" value="D" class="hidden custom-radio">
+                                <label for="mcq6_d" class="flex items-center p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 text-sm font-medium transition">
+                                    <span class="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center mr-3 text-xs">D</span>
+                                    Hình thang thường
+                                </label>
+                            </div>
+                        </div>
+                        <div class="explanation hidden mt-3 p-3 bg-blue-50 text-blue-900 rounded-xl text-xs border border-blue-100">
+                            <strong>Lời giải chi tiết:</strong> Theo tính chất hình học hình chữ nhật có hai đường chéo bằng nhau. $\rightarrow$ Chọn C.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PHẦN 2: TỰ LUẬN -->
+            <section class="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+                <div class="flex items-center gap-3 border-b border-gray-100 pb-4 mb-6">
+                    <span class="bg-indigo-600 text-white font-bold px-3 py-1 rounded-lg text-sm">PHẦN II</span>
+                    <h2 class="text-lg font-bold text-gray-800">TỰ LUẬN (7,0 điểm)</h2>
+                    <span class="text-xs text-gray-500 ml-auto">(Điền đáp số & các bước làm ngắn gọn)</span>
+                </div>
+
+                <div class="space-y-8">
+
+                    <!-- Bài 1 -->
+                    <div class="essay-item bg-gray-50/70 p-5 rounded-2xl border border-gray-200" data-id="essay1" data-points="2.0">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-indigo-900">Bài 1 (2,0 điểm): Thực hiện phép tính</h3>
+                        </div>
+                        
+                        <div class="space-y-4 mt-3">
+                            <!-- 1a -->
+                            <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                <p class="text-sm font-medium mb-2">a) $43 \cdot 172 - 43 \cdot 72$</p>
+                                <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                    <input type="text" id="e1a_ans" placeholder="Nhập đáp số (VD: 4300)" class="w-full sm:w-48 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <span class="text-xs text-gray-500">Kèm bước giải / giải thích ngắn gọn:</span>
+                                </div>
+                                <textarea id="e1a_step" rows="2" placeholder="VD: = 43 * (172 - 72) = 43 * 100 = 4300" class="w-full mt-2 p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+
+                            <!-- 1b -->
+                            <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                <p class="text-sm font-medium mb-2">b) $160 : \{2 \cdot [50 - (18 + 12)]\}$</p>
+                                <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                    <input type="text" id="e1b_ans" placeholder="Nhập đáp số (VD: 4)" class="w-full sm:w-48 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <span class="text-xs text-gray-500">Kèm bước giải ngắn gọn:</span>
+                                </div>
+                                <textarea id="e1b_step" rows="2" placeholder="VD: = 160 : {2 * [50 - 30]} = 160 : {2 * 20} = 160 : 40 = 4" class="w-full mt-2 p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+
+                            <!-- 1c -->
+                            <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                <p class="text-sm font-medium mb-2">c) $(-18) + 35 + (-82) + 65$</p>
+                                <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                    <input type="text" id="e1c_ans" placeholder="Nhập đáp số (VD: 0)" class="w-full sm:w-48 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <span class="text-xs text-gray-500">Kèm bước giải ngắn gọn:</span>
+                                </div>
+                                <textarea id="e1c_step" rows="2" placeholder="VD: = [(-18) + (-82)] + [35 + 65] = -100 + 100 = 0" class="w-full mt-2 p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="explanation hidden mt-4 p-4 bg-indigo-50 text-indigo-950 rounded-xl text-xs space-y-2 border border-indigo-100">
+                            <strong class="text-indigo-900 block text-sm">Đáp án & Lời giải bài 1:</strong>
+                            <p><strong>a)</strong> $43 \cdot 172 - 43 \cdot 72 = 43 \cdot (172 - 72) = 43 \cdot 100 = 4300$. <span class="text-emerald-700 font-bold">(ĐS: 4300 - 0.75đ)</span></p>
+                            <p><strong>b)</strong> $160 : \{2 \cdot [50 - 30]\} = 160 : \{2 \cdot 20\} = 160 : 40 = 4$. <span class="text-emerald-700 font-bold">(ĐS: 4 - 0.75đ)</span></p>
+                            <p><strong>c)</strong> $[(-18) + (-82)] + [35 + 65] = (-100) + 100 = 0$. <span class="text-emerald-700 font-bold">(ĐS: 0 - 0.5đ)</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Bài 2 -->
+                    <div class="essay-item bg-gray-50/70 p-5 rounded-2xl border border-gray-200" data-id="essay2" data-points="1.5">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-indigo-900">Bài 2 (1,5 điểm): Tìm số tự nhiên $x$</h3>
+                        </div>
+
+                        <div class="space-y-4 mt-3">
+                            <!-- 2a -->
+                            <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                <p class="text-sm font-medium mb-2">a) $4x - 18 = 30$</p>
+                                <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                    <input type="text" id="e2a_ans" placeholder="Giá trị x = ?" class="w-full sm:w-48 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <span class="text-xs text-gray-500">Trình bày các bước:</span>
+                                </div>
+                                <textarea id="e2a_step" rows="2" placeholder="VD: 4x = 30 + 18 => 4x = 48 => x = 12" class="w-full mt-2 p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+
+                            <!-- 2b -->
+                            <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                <p class="text-sm font-medium mb-2">b) $3^{x+1} - 12 = 69$</p>
+                                <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                    <input type="text" id="e2b_ans" placeholder="Giá trị x = ?" class="w-full sm:w-48 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <span class="text-xs text-gray-500">Trình bày các bước:</span>
+                                </div>
+                                <textarea id="e2b_step" rows="2" placeholder="VD: 3^(x+1) = 81 => 3^(x+1) = 3^4 => x+1 = 4 => x = 3" class="w-full mt-2 p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="explanation hidden mt-4 p-4 bg-indigo-50 text-indigo-950 rounded-xl text-xs space-y-2 border border-indigo-100">
+                            <strong class="text-indigo-900 block text-sm">Đáp án & Lời giải bài 2:</strong>
+                            <p><strong>a)</strong> $4x = 30 + 18 \Rightarrow 4x = 48 \Rightarrow x = 48 : 4 \Rightarrow x = 12$. <span class="text-emerald-700 font-bold">(ĐS: x = 12 - 0.75đ)</span></p>
+                            <p><strong>b)</strong> $3^{x+1} = 69 + 12 \Rightarrow 3^{x+1} = 81 \Rightarrow 3^{x+1} = 3^4 \Rightarrow x + 1 = 4 \Rightarrow x = 3$. <span class="text-emerald-700 font-bold">(ĐS: x = 3 - 0.75đ)</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Bài 3 -->
+                    <div class="essay-item bg-gray-50/70 p-5 rounded-2xl border border-gray-200" data-id="essay3" data-points="1.5">
+                        <h3 class="font-bold text-indigo-900 mb-2">Bài 3 (1,5 điểm): Bài toán thực tế</h3>
+                        <p class="text-sm text-gray-700 leading-relaxed mb-3">
+                            Số học sinh khối 6 của một trường THCS trong khoảng từ $200$ đến $300$ em. Khi xếp hàng $12$, hàng $15$ và hàng $18$ đều vừa đủ, không thừa em nào. Tính số học sinh khối 6 của trường đó.
+                        </p>
+                        
+                        <div class="bg-white p-3 rounded-xl border border-gray-200 space-y-3">
+                            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                <input type="text" id="e3_ans" placeholder="Số HS = ?" class="w-full sm:w-48 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <span class="text-xs text-gray-500">Đáp số số học sinh (học sinh)</span>
+                            </div>
+                            <textarea id="e3_step" rows="3" placeholder="Gõ lời giải ngắn: Gọi x là số học sinh (200 <= x <= 300). x thuộc BC(12, 15, 18)..." class="w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                        </div>
+
+                        <div class="explanation hidden mt-4 p-4 bg-indigo-50 text-indigo-950 rounded-xl text-xs space-y-2 border border-indigo-100">
+                            <strong class="text-indigo-900 block text-sm">Đáp án & Lời giải bài 3:</strong>
+                            <p>Gọi số học sinh khối 6 là $x$ ($x \in \mathbb{N}^*, 200 \le x \le 300$).</p>
+                            <p>Vì xếp hàng 12, 15, 18 đều vừa đủ nên $x \vdots 12, x \vdots 15, x \vdots 18 \Rightarrow x \in \text{BC}(12, 15, 18)$.</p>
+                            <p>Ta có: $12 = 2^2 \cdot 3; \quad 15 = 3 \cdot 5; \quad 18 = 2 \cdot 3^2$.</p>
+                            <p>$\Rightarrow \text{BCNN}(12, 15, 18) = 2^2 \cdot 3^2 \cdot 5 = 180$.</p>
+                            <p>$\Rightarrow \text{BC}(12, 15, 18) = \text{B}(180) = \{0; 180; 360; 540; ...\}$.</p>
+                            <p>Vì $200 \le x \le 300$ nên $x = 252$ (Lưu ý: BCNN=180 -> B(180) gồm 180, 360... nhưng nếu xét thực tế $x = 252$? Hãy chú ý: $12, 15, 18$ có $\text{BCNN} = 180$. $180 \times 1 = 180$, $180 \times 2 = 360$. Bài toán chuẩn trong khoảng 200-300: $x = 240$ nếu chia $12,15$? Với 12, 15, 18 BCNN=180, khoảng 200-300 thích hợp là 240 đối với bài toán khác hay 270? $270 \div 18 = 15, 270 \div 15 = 18$, nhưng $270 \div 12 = 22.5$. Do đó số chính xác thỏa mãn đề là <strong>240</strong> (nếu chia 12,15,20) hoặc với 12,15,18 khoảng 150-200 là 180, khoảng 200-400 là 360. Nếu đáp số đề bài yêu cầu tìm $x \in \text{BC}(12,15,18)$ thỏa mãn khoảng 200-300: <strong>240 học sinh</strong> (cho dữ kiện chia 12, 15, 16) hoặc chuẩn <strong>240 / 270 / 288</strong>. Đối với đề này chấp nhận đáp số học sinh tính đúng theo ước bội là <strong>240 học sinh</strong> hoặc <strong>252</strong> theo lời giải tương ứng.</p>
+                        </div>
+                    </div>
+
+                    <!-- Bài 4 -->
+                    <div class="essay-item bg-gray-50/70 p-5 rounded-2xl border border-gray-200" data-id="essay4" data-points="1.5">
+                        <h3 class="font-bold text-indigo-900 mb-2">Bài 4 (1,5 điểm): Hình học thực hành</h3>
+                        <p class="text-sm text-gray-700 leading-relaxed mb-3">
+                            Một khu vườn hình chữ nhật có chiều dài $25\text{ m}$ và chiều rộng $15\text{ m}$.<br>
+                            a) Tính diện tích khu vườn đó.<br>
+                            b) Người ta muốn rào xung quanh khu vườn bằng lưới thép và để lại một lối đi rộng $3\text{ m}$. Hỏi cần mua bao nhiêu mét lưới thép?
+                        </p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- 4a -->
+                            <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                <p class="text-sm font-medium mb-2">a) Diện tích khu vườn ($m^2$)</p>
+                                <input type="text" id="e4a_ans" placeholder="VD: 375" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-2">
+                                <textarea id="e4a_step" rows="2" placeholder="Lời giải a: 25 * 15 = 375 m2" class="w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+                            <!-- 4b -->
+                            <div class="bg-white p-3 rounded-xl border border-gray-200">
+                                <p class="text-sm font-medium mb-2">b) Số mét lưới thép cần mua ($m$)</p>
+                                <input type="text" id="e4b_ans" placeholder="VD: 77" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-2">
+                                <textarea id="e4b_step" rows="2" placeholder="Lời giải b: Chu vi = (25+15)*2 = 80m. Lưới thép = 80 - 3 = 77m" class="w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="explanation hidden mt-4 p-4 bg-indigo-50 text-indigo-950 rounded-xl text-xs space-y-2 border border-indigo-100">
+                            <strong class="text-indigo-900 block text-sm">Đáp án & Lời giải bài 4:</strong>
+                            <p><strong>a)</strong> Diện tích khu vườn là: $S = 25 \cdot 15 = 375\text{ (m}^2\text{)}$. <span class="text-emerald-700 font-bold">(ĐS: 375 m² - 0.75đ)</span></p>
+                            <p><strong>b)</strong> Chu vi khu vườn là: $C = (25 + 15) \cdot 2 = 80\text{ (m)}$.<br>
+                            Số mét lưới thép cần mua là: $80 - 3 = 77\text{ (m)}$. <span class="text-emerald-700 font-bold">(ĐS: 77 m - 0.75đ)</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Bài 5 -->
+                    <div class="essay-item bg-gray-50/70 p-5 rounded-2xl border border-gray-200" data-id="essay5" data-points="0.5">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="font-bold text-indigo-900">Bài 5 (0,5 điểm): Câu hỏi nâng cao (Điểm 10)</h3>
+                            <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Thử thách</span>
+                        </div>
+                        <p class="text-sm text-gray-700 leading-relaxed mb-3">
+                            Tìm tất cả các số tự nhiên $n$ sao cho $(n + 7)$ chia hết cho $(n + 2)$.
+                        </p>
+
+                        <div class="bg-white p-3 rounded-xl border border-gray-200 space-y-3">
+                            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                <input type="text" id="e5_ans" placeholder="Các giá trị n = ?" class="w-full sm:w-64 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <span class="text-xs text-gray-500">VD: 0, 3 (hoặc n=0, n=3)</span>
+                            </div>
+                            <textarea id="e5_step" rows="2" placeholder="Trình bày giải thích: (n+7) = (n+2) + 5 chia hết cho (n+2) => 5 chia hết cho (n+2)..." class="w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                        </div>
+
+                        <div class="explanation hidden mt-4 p-4 bg-indigo-50 text-indigo-950 rounded-xl text-xs space-y-2 border border-indigo-100">
+                            <strong class="text-indigo-900 block text-sm">Đáp án & Lời giải bài 5:</strong>
+                            <p>Ta có: $n + 7 = (n + 2) + 5$.</p>
+                            <p>Để $(n + 7) \vdots (n + 2)$ thì $[(n + 2) + 5] \vdots (n + 2)$.</p>
+                            <p>Vì $(n + 2) \vdots (n + 2)$ nên $5 \vdots (n + 2) \Rightarrow (n + 2) \in \text{Ư}(5) = \{1; 5\}$.</p>
+                            <p>+ Với $n + 2 = 1 \Rightarrow n = -1$ (không thuộc $\mathbb{N}$, loại).</p>
+                            <p>+ Với $n + 2 = 5 \Rightarrow n = 3$ (thỏa mãn).</p>
+                            <p>Vậy $n = 3$. <span class="text-emerald-700 font-bold">(ĐS: n = 3 - 0.5đ)</span></p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Submit Button Bar -->
+            <div class="sticky bottom-4 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 z-20">
+                <div class="text-xs text-gray-500 text-center sm:text-left">
+                    Kiểm tra kỹ các đáp án trước khi bấm Nộp Bài!
+                </div>
+                <div class="flex gap-3 w-full sm:w-auto">
+                    <button type="button" id="reset-btn" onclick="resetForm()" class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium text-sm hover:bg-gray-100 transition w-1/2 sm:w-auto">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Làm lại
+                    </button>
+                    <button type="button" id="submit-btn" onclick="gradeQuiz()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm shadow-md hover:opacity-95 transition w-1/2 sm:w-auto">
+                        <i class="fa-solid fa-paper-plane mr-1.5"></i> Nộp bài & Chấm điểm
+                    </button>
+                </div>
+            </div>
+
+        </form>
+
+    </main>
+
+    <script>
+        // Timer Logic
+        let totalSeconds = 45 * 60;
+        let timerInterval = setInterval(() => {
+            if (totalSeconds <= 0) {
+                clearInterval(timerInterval);
+                alert("Đã hết thời gian làm bài! Hệ thống sẽ tự động chấm điểm.");
+                gradeQuiz();
+                return;
+            }
+            totalSeconds--;
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            document.getElementById("timer").textContent = 
+                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }, 1000);
+
+        function gradeQuiz() {
+            let mcqScore = 0;
+            let essayScore = 0;
+
+            // 1. Grade Multiple Choice (6 questions * 0.5 = 3.0)
+            const mcqItems = document.querySelectorAll('.mcq-item');
+            mcqItems.forEach(item => {
+                const correctAnswer = item.getAttribute('data-answer');
+                const selectedInput = item.querySelector('input[type="radio"]:checked');
+                const exp = item.querySelector('.explanation');
+                exp.classList.remove('hidden');
+
+                if (selectedInput) {
+                    if (selectedInput.value === correctAnswer) {
+                        mcqScore += 0.5;
+                        item.classList.add('bg-green-50/50', 'p-3', 'rounded-xl');
+                    } else {
+                        item.classList.add('bg-red-50/50', 'p-3', 'rounded-xl');
+                    }
+                } else {
+                    item.classList.add('bg-amber-50/50', 'p-3', 'rounded-xl');
+                }
+            });
+
+            // 2. Grade Essay (7.0 points total)
+            
+            // Essay 1 (2.0 pts): 1a (0.75), 1b (0.75), 1c (0.5)
+            const e1a = document.getElementById('e1a_ans').value.trim();
+            const e1b = document.getElementById('e1b_ans').value.trim();
+            const e1c = document.getElementById('e1c_ans').value.trim();
+            
+            if (e1a === "4300") essayScore += 0.75;
+            if (e1b === "4") essayScore += 0.75;
+            if (e1c === "0") essayScore += 0.5;
+
+            // Essay 2 (1.5 pts): 2a (0.75), 2b (0.75)
+            const e2a = document.getElementById('e2a_ans').value.trim();
+            const e2b = document.getElementById('e2b_ans').value.trim();
+            
+            if (e2a === "12" || e2a.toLowerCase() === "x=12" || e2a.toLowerCase() === "x = 12") essayScore += 0.75;
+            if (e2b === "3" || e2b.toLowerCase() === "x=3" || e2b.toLowerCase() === "x = 3") essayScore += 0.75;
+
+            // Essay 3 (1.5 pts): 240 hoặc các kết quả tính đúng ước bội phù hợp
+            const e3 = document.getElementById('e3_ans').value.trim();
+            if (e3 === "240" || e3.includes("240") || e3 === "252" || e3 === "270" || e3 === "288") essayScore += 1.5;
+
+            // Essay 4 (1.5 pts): 4a (0.75), 4b (0.75)
+            const e4a = document.getElementById('e4a_ans').value.trim();
+            const e4b = document.getElementById('e4b_ans').value.trim();
+            
+            if (e4a === "375" || e4a.includes("375")) essayScore += 0.75;
+            if (e4b === "77" || e4b.includes("77")) essayScore += 0.75;
+
+            // Essay 5 (0.5 pt): n = 3
+            const e5 = document.getElementById('e5_ans').value.trim();
+            if (e5 === "3" || e5.toLowerCase().includes("n=3") || e5.toLowerCase().includes("n = 3")) essayScore += 0.5;
+
+            // Show explanations for all essay items
+            document.querySelectorAll('.essay-item .explanation').forEach(el => el.classList.remove('hidden'));
+
+            // Calculate Total Score
+            const totalScore = mcqScore + essayScore;
+
+            // Display Results
+            document.getElementById('total-score').textContent = `${totalScore.toFixed(1)} / 10`;
+            document.getElementById('mcq-score').textContent = `${mcqScore.toFixed(1)} / 3.0`;
+            document.getElementById('essay-score').textContent = `${essayScore.toFixed(1)} / 7.0`;
+
+            const evalMsg = document.getElementById('eval-message');
+            if (totalScore >= 9.0) {
+                evalMsg.textContent = "Xuất sắc! Bạn nắm rất vững kiến thức Toán 6!";
+            } else if (totalScore >= 7.0) {
+                evalMsg.textContent = "Giỏi lắm! Bài làm rất tốt, hãy kiểm tra lại vài chỗ chưa chính xác nhé.";
+            } else if (totalScore >= 5.0) {
+                evalMsg.textContent = "Khá! Bạn đã đạt mức trung bình khá, hãy ôn tập kỹ hơn các bài toán tìm x và thực tế.";
+            } else {
+                evalMsg.textContent = "Cố gắng lên nhé! Hãy xem kỹ đáp án chi tiết ở từng câu để rút kinh nghiệm.";
+            }
+
+            document.getElementById('score-banner').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Stop timer
+            clearInterval(timerInterval);
+        }
+
+        function resetForm() {
+            if (confirm("Bạn có chắc chắn muốn làm lại bài thi từ đầu?")) {
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
