@@ -38,6 +38,10 @@ def login_page():
 def register_page():
     return no_cache_response('.', 'register.html')
 
+@app.route('/lamdetoan')
+def toan_page():
+    return no_cache_response('.', 'toan.html')
+
 # ==========================================
 # CATCH-ALL — Đặt cuối cùng
 # ==========================================
